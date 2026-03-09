@@ -9,7 +9,7 @@ from camera import Camera
 
 SPEED = 0.03
 INIT_POS = {  # both hands down
-        'head_z': 0.0, 'head_y': -30.0, 'r_shoulder_z': -30, 'r_shoulder_y': 13,
+        'head_z': 0.0, 'head_y': 0.0, 'r_shoulder_z': -30, 'r_shoulder_y': 13,
         'r_arm_x': 0, 'r_elbow_y': 104, 'r_wrist_z': -4, 'r_wrist_x': -55,
         'r_thumb_z': -62, 'r_thumb_x': -180, 'r_indexfinger_x': -170, 'r_middlefingers_x': -180,
         'l_shoulder_z': -30.0, 'l_shoulder_y': 13.0, 'l_arm_x': 0.0, 'l_elbow_y': 104.0,
@@ -20,6 +20,7 @@ X2Z_COEF, Y2Y_COEF = 0.37582421139136485, 0.3273428034924306
 BETA1 = [0.37536988, -0.00526618]
 BETA2 = [0.00983655, 0.33090327]
 
+FRAMES_SAVE_DIR = 'stereo_calib_9x6_30mm'
 
 def get_joints_limits(robot_id, num_joints):
     """
@@ -131,7 +132,7 @@ def head_init_position(robot):
 
 # Function to save frame
 def save_frame(frame, side, timestamp):
-    file_name = f"custom_dataset_hand_2/{side}/frame_{timestamp}.jpg"
+    file_name = f"{FRAMES_SAVE_DIR}/{side}/frame_{timestamp:02d}.jpg"
     cv2.imwrite(file_name, frame)
     print(f"Saved frame to {file_name}")
 
@@ -172,10 +173,10 @@ camera_right = Camera("right")
 camera_left = Camera("left")
 
 # Prepare directories for saving the frames if they don't exist
-if not os.path.exists('custom_dataset_hand_2/right'):
-    os.makedirs('custom_dataset_hand_2/right')
-if not os.path.exists('custom_dataset_hand_2/left'):
-    os.makedirs('custom_dataset_hand_2/left')
+if not os.path.exists(f'{FRAMES_SAVE_DIR}/right'):
+    os.makedirs(f'{FRAMES_SAVE_DIR}/right')
+if not os.path.exists(f'{FRAMES_SAVE_DIR}/left'):
+    os.makedirs(f'{FRAMES_SAVE_DIR}/left')
 
 head_torque_enabled = True
 arms_torque_enabled = True
@@ -188,6 +189,7 @@ print("Press 'a' to toggle arms torque.")
 print("Press 'h' to toggle head torque.")
 print("Press 'ESC' to exit.")
 
+frame_index = 0
 # Main loop to capture and save frames
 while True:
     target_coord_diffs_r = None
@@ -213,9 +215,10 @@ while True:
 
     # Save both frames if 's' is pressed
     if key == ord('s'):  # Save frames from both cameras
-        timestamp = time.time()  # Use timestamp to ensure unique filenames
-        save_frame(camera_right.show(), "right", timestamp)
-        save_frame(camera_left.show(), "left", timestamp)
+        # timestamp = time.time()  # Use timestamp to ensure unique filenames
+        save_frame(camera_right.show(), "right", frame_index)
+        save_frame(camera_left.show(), "left", frame_index)
+        frame_index += 1
     
     if key == ord('a'):  # Toggle arms torque
         if arms_torque_enabled:
