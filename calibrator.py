@@ -5,7 +5,7 @@ import argparse
 import os
 import csv
 
-mode = 'calibrate' # anything else is exploratory mode
+mode = 'calibrat' # anything else is exploratory mode
 
 SPEED = 0.05
 DELAY = 3
@@ -315,6 +315,11 @@ def main():
             actual_position = get_real_joints(robot, joint_names)
             for i in range(len(joint_indices)):
                 p.resetJointState(robot_id, joint_indices[i], nicodeg2rad(joint_names[i],actual_position[i]))
+            
+            print(f"Actual position: {actual_position}")
+            print(f"Joint indices: {joint_indices}")
+            print(f"Joint names: {joint_names}")
+
             #print("Actual position: ", actual_position,  end='\r')
             keypress = p.getKeyboardEvents()
             if ord('d') in keypress:

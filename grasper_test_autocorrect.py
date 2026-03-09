@@ -9,6 +9,7 @@ try:
         urdf_path="./urdf/nico_grasper.urdf",
         motor_config="./nico_humanoid_upper_rh7d_ukba.json",
         connect_robot=True,     # Connect to the real robot hardware
+        gui=True
     )
     print("Grasper initialized successfully for real robot.")
 except Exception as e:
@@ -21,7 +22,7 @@ grasp_ori = [0,0,0.0] # Top grap [0,0,0] or side grasp [1.57,0,0]
 print("\n--- Executing Sequence with IK Move ---")
 hand = "left"
 # Initial position
-grasper.move_both_arms (init_pos_r, init_ori)
+grasper.move_both_arms(init_pos_r, init_ori)
 #for x in np.arange(0.25, 0.45, 0.05):
 #    for y in np.arange(0.3, 0.21, 0.05):
 #        grasper.move_arm([x, y, 0.1], grasp_ori, hand)
@@ -33,7 +34,7 @@ for x in np.arange(0.25, 0.45, 0.05):
     for y in np.arange(-0.3, 0.21, 0.05):
         grasper.move_arm([x, y, 0.1], grasp_ori, hand,autozpos = True,autoori = True)
         #time.sleep(1)
-    grasper.move_both_arms (init_pos_r, init_ori)
+    grasper.move_both_arms(init_pos_r, init_ori)
     time.sleep(1)
 
 

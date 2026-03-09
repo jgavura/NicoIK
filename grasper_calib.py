@@ -27,7 +27,7 @@ print("\n--- Executing Sequence with IK Move ---")
 grasper.init_position([0, -0.3, 0.5], [0,-1.57,0], hand)
 
 # for i in range(5):
-#     object_x, object_y, object_z = 0.369, -0.274, 0.123
+#     object_x, object_y, object_z = 0.369, 0.274, 0.112
 
 #     # Calculate z for picking up the object
 #     # object_z = 0.125
@@ -41,12 +41,29 @@ grasper.init_position([0, -0.3, 0.5], [0,-1.57,0], hand)
 #     # grasper.place_object([object_x,object_y,object_z], grasp_ori, hand)
 
 #     # Initial position
-#     grasper.init_position([0, -0.3, 0.5], [0,-1.57,0], hand)
+#     grasper.init_position([0, 0.3, 0.5], [0,-1.57,0], hand)
 
-for x in np.arange(0.25, 0.45, 0.05):
-    for y in np.arange(-0.3, 0.21, 0.05):
-        grasper.pick_object([x,y,0.7], grasp_ori, hand, autozpos=True, autoori=True)
-        grasper.init_position([0, -0.3, 0.5], [0,-1.57,0], hand)
+# right grid
+# for x in np.arange(0.25, 0.45, 0.05):
+#     for y in np.arange(-0.3, 0.21, 0.05):
+#         grasper.pick_object([x,y,0.7], grasp_ori, hand, autozpos=True, autoori=True)
+#         grasper.init_position([0, -0.3, 0.5], [0,-1.57,0], hand)
+
+# right diagonal
+for i in range(8):
+    grasper.pick_object([0.25+i*0.025,-0.3+i*0.0625,0.7], grasp_ori, hand, autozpos=True, autoori=True)
+    grasper.init_position([0, -0.3, 0.5], [0,-1.57,0], hand)
+
+# left grid
+# for x in np.arange(0.25, 0.45, 0.05):
+#     for y in np.arange(0.3, -0.21, -0.05):
+#         grasper.pick_object([x,y,0.13], grasp_ori, hand, autozpos=True, autoori=True)
+#         grasper.init_position([0, 0.3, 0.5], [0,-1.57,0], hand)
+
+# left diagonal
+# for i in range(8):
+#     grasper.pick_object([0.25+i*0.025,0.3+i*(-0.0625),0.7], grasp_ori, hand, autozpos=True, autoori=True)
+#     grasper.init_position([0, 0.3, 0.5], [0,-1.57,0], hand)
 
 
 print("--- Sequence Finished ---\n")

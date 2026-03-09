@@ -1,9 +1,13 @@
+from concurrent.futures import thread
+from tensorflow import keras
 import pybullet as p
 import time
-from numpy import random, rad2deg, deg2rad, set_printoptions, array, linalg, round, any, mean, arctan2, sqrt
+from numpy import random, rad2deg, deg2rad, set_printoptions, array, linalg, round, any, mean, arctan2, sqrt, pi, sin, cos, tan
 from scipy.interpolate import Rbf
 import sys  # Add this import at the top of the file
 from sim_height_calculation import calculate_z
+from tablet_coords_conversion import sim2tab
+import threading
 
 # Attempt to import Motion, but handle failure gracefully if not simulating
 try:
@@ -21,27 +25,55 @@ class Grasper:
     DELAY = 2
     REPEAT = 1
 
+    SCENE_PATH = "./urdf/table_nico_grasp.urdf"
+    TEXTURE_PATH = "./urdf/textures/table.jpg"
+
     # Predefined poses (consider making these configurable or loading from file)
     RESET_POSE = [0,0,0,90,90,90,0,0,-180,-180,-180,-180,0.22,12.88,11.03,100.97,-24.13,-91.91,-180.0,-180.0,-180.0,-174.81]
     DROP_POSE = [0,0,-20,27,40,90,125,100,180,20,20,20,0,13,11,100,-24,-91,-180.0,-180.0,-180.0,-175]
     GRASP_POSE = [0,0,-2,34,17,122,161,-13,180,-180,-180,-180,0,13,11,100,-24,-91,-180.0,-180.0,-180.0,-175]
-    INIT_POS = {  # standard position
-        'head_z': 0.0, 'head_y': 0.0, 'r_shoulder_z': 1, 'r_shoulder_y': 87,
+    # INIT_POS = {  # both hands up
+    #     'head_z': 0.0, 'head_y': 0.0, 'r_shoulder_z': -10, 'r_shoulder_y': 87,
+    #     'r_arm_x': 88, 'r_elbow_y': 87, 'r_wrist_z': 2, 'r_wrist_x': -29,
+    #     'r_thumb_z': -1, 'r_thumb_x': 44, 'r_indexfinger_x': -90, 'r_middlefingers_x': 100.0,
+    #     'l_shoulder_z': -10, 'l_shoulder_y': 87, 'l_arm_x': 88, 'l_elbow_y': 87,
+    #     'l_wrist_z': 2, 'l_wrist_x': -29, 'l_thumb_z': -1, 'l_thumb_x': 44,
+    #     'l_indexfinger_x': -90, 'l_middlefingers_x': 100
+    # }
+    INIT_POS = {  # right hand up, left down
+        'head_z': 0.0, 'head_y': 0.0, 'r_shoulder_z': -10, 'r_shoulder_y': 87,
         'r_arm_x': 88, 'r_elbow_y': 87, 'r_wrist_z': 2, 'r_wrist_x': -29,
         'r_thumb_z': -1, 'r_thumb_x': 44, 'r_indexfinger_x': -90, 'r_middlefingers_x': 100.0,
-        'l_shoulder_z': -24.0, 'l_shoulder_y': 13.0, 'l_arm_x': 0.0, 'l_elbow_y': 104.0,
+        'l_shoulder_z': -30.0, 'l_shoulder_y': 13.0, 'l_arm_x': 0.0, 'l_elbow_y': 104.0,
         'l_wrist_z': -4.0, 'l_wrist_x': -55.0, 'l_thumb_z': -62.0, 'l_thumb_x': -180.0,
         'l_indexfinger_x': -170.0, 'l_middlefingers_x': -180.0
     }
+    # INIT_POS = {  # left hand up, right down
+    #     'head_z': 0.0, 'head_y': 0.0, 'r_shoulder_z': -30, 'r_shoulder_y': 13,
+    #     'r_arm_x': 0, 'r_elbow_y': 104, 'r_wrist_z': -4, 'r_wrist_x': -55,
+    #     'r_thumb_z': -62, 'r_thumb_x': -180, 'r_indexfinger_x': -170, 'r_middlefingers_x': -180,
+    #     'l_shoulder_z': -10, 'l_shoulder_y': 87, 'l_arm_x': 88, 'l_elbow_y': 87,
+    #     'l_wrist_z': 2, 'l_wrist_x': -29, 'l_thumb_z': -1, 'l_thumb_x': 44,
+    #     'l_indexfinger_x': -90, 'l_middlefingers_x': 100
+    # }
 
     RIGHTHAND_RBF_POINTS = {
         'x': [0.133, 0.208, 0.272, 0.338, 0.388, 0.420, 0.458, 0.483, 0.496, 0.480, 0.464, 0.433, 0.392, 0.344, 0.291, 0.227, 0.164, 0.152, 0.139, 0.123, 0.104, 0.111, 0.085, 0.069, 0.085, 0.158, 0.177, 0.193, 0.202, 0.218, 0.234, 0.313, 0.300, 0.278, 0.268, 0.240, 0.227, 0.313, 0.344, 0.366, 0.376, 0.385, 0.407, 0.426, 0.426, 0.272, 0.369],
         'y': [-0.395, -0.437, -0.447, -0.411, -0.358, -0.289, -0.216, -0.142, -0.074, -0.005, 0.068, 0.142, 0.200, 0.247, 0.279, 0.305, 0.321, 0.258, 0.184, 0.100, 0.005, -0.084, -0.163, -0.253, -0.326, -0.289, -0.189, -0.089, 0.016, 0.116, 0.205, 0.158, 0.053, -0.053, -0.153, -0.242, -0.342, -0.316, -0.216, -0.121, -0.026, 0.079, -0.179, -0.089, 0.005, -0.384, -0.274],
-        'yaw': [-0.595, -0.728, -0.794, -0.761, -0.694, -0.463, -0.265, -0.132, -0.033, 0.165, 0.331, 0.529, 0.728, 0.893, 1.058, 1.224, 1.455, 1.389, 1.389, 1.389, 1.488, 0.794, 0.298, -0.132, -0.298, -0.298, -0.099, 0.298, 0.959, 1.058, 1.190, 0.992, 0.761, 0.496, 0.066, -0.265, -0.496, -0.496, -0.198, 0.099, 0.298, 0.562, -0.066, 0.198, 0.331, -0.496, -0.331],
-        'z': [0.115, 0.123, 0.128, 0.130, 0.132, 0.131, 0.128, 0.129, 0.127, 0.127, 0.126, 0.124, 0.120, 0.114, 0.115, 0.107, 0.091, 0.095, 0.115, 0.105, 0.101, 0.095, 0.092, 0.089, 0.102, 0.106, 0.101, 0.094, 0.095, 0.104, 0.112, 0.116, 0.112, 0.109, 0.108, 0.110, 0.120, 0.118, 0.117, 0.122, 0.123]
+        # 'yaw': [-0.595, -0.728, -0.794, -0.761, -0.694, -0.463, -0.265, -0.132, -0.033, 0.165, 0.331, 0.529, 0.728, 0.893, 1.058, 1.224, 1.455, 1.389, 1.389, 1.389, 1.488, 0.794, 0.298, -0.132, -0.298, -0.298, -0.099, 0.298, 0.959, 1.058, 1.190, 0.992, 0.761, 0.496, 0.066, -0.265, -0.496, -0.496, -0.198, 0.099, 0.298, 0.562, -0.066, 0.198, 0.331, -0.496, -0.331],                     # old
+        'yaw': [-0.595, -0.728, -0.794, -0.761, -0.694, -0.463, -0.265, -0.132, -0.033, 0.165, 0.331, 0.529, 0.728, 0.893, 1.058, 1.224, 1.455, 1.389, 1.389, 1.389, 1.819, 1.257, 0.496, -0.132, -0.298, 0.0, 0.331, 0.661, 1.29, 1.488, 1.29, 1.157, 1.124, 0.827, 0.496, 0.165, -0.298, -0.198, 0.165, 0.331, 0.43, 0.529, -0.066, 0.198, 0.331, -0.496, -0.331],                       # new
+        # 'z': [0.115, 0.123, 0.128, 0.130, 0.132, 0.131, 0.128, 0.129, 0.127, 0.127, 0.126, 0.124, 0.120, 0.114, 0.115, 0.107, 0.091, 0.095, 0.115, 0.105, 0.101, 0.095, 0.092, 0.089, 0.102, 0.106, 0.101, 0.094, 0.095, 0.104, 0.112, 0.116, 0.112, 0.109, 0.108, 0.110, 0.120, 0.118, 0.117, 0.122, 0.123],                                                                                     # old
+        'z': [0.115, 0.123, 0.128, 0.13, 0.132, 0.131, 0.128, 0.129, 0.127, 0.127, 0.126, 0.124, 0.12, 0.114, 0.115, 0.107, 0.091, 0.095, 0.035, 0.038, 0.063, 0.115, 0.105, 0.101, 0.095, 0.092, 0.089, 0.096, 0.102, 0.106, 0.101, 0.098, 0.101, 0.104, 0.112, 0.118, 0.112, 0.109, 0.108, 0.11, 0.12, 0.118, 0.117, 0.122, 0.123]                                                            # new
     }
 
-    def __init__(self, urdf_path="./urdf/nico_grasper.urdf", motor_config='./nico_humanoid_upper_rh7d_ukba.json', connect_robot=True):
+    LEFTHAND_RBF_POINTS = {
+        'x': [0.133, 0.208, 0.272, 0.338, 0.388, 0.420, 0.458, 0.483, 0.496, 0.480, 0.464, 0.433, 0.392, 0.344, 0.291, 0.227, 0.164, 0.152, 0.139, 0.123, 0.104, 0.111, 0.085, 0.069, 0.085, 0.158, 0.177, 0.193, 0.202, 0.218, 0.234, 0.313, 0.300, 0.278, 0.268, 0.240, 0.227, 0.313, 0.344, 0.366, 0.376, 0.385, 0.407, 0.426, 0.426, 0.272, 0.369],
+        'y': [0.395, 0.437, 0.447, 0.411, 0.358, 0.289, 0.216, 0.142, 0.074, 0.005, -0.068, -0.142, -0.2, -0.247, -0.279, -0.305, -0.321, -0.258, -0.184, -0.1, -0.005, 0.084, 0.163, 0.253, 0.326, 0.289, 0.189, 0.089, -0.016, -0.116, -0.205, -0.158, -0.053, 0.053, 0.153, 0.242, 0.342, 0.316, 0.216, 0.121, 0.026, -0.079, 0.179, 0.089, -0.005, 0.384, 0.274],
+        'yaw': [0.595, 0.728, 0.794, 0.761, 0.694, 0.463, 0.265, 0.132, 0.033, -0.165, -0.331, -0.529, -0.728, -0.893, -1.058, -1.224, -1.455, -1.389, -1.389, -1.389, -1.819, -1.257, -0.496, 0.132, 0.298, 0.0, -0.331, -0.661, -1.29, -1.488, -1.29, -1.157, -1.124, -0.827, -0.496, -0.165, 0.298, 0.198, -0.165, -0.331, -0.43, -0.529, 0.066, -0.198, -0.331, 0.496, 0.331],
+        'z': [0.107, 0.113, 0.114, 0.117, 0.114, 0.116, 0.114, 0.112, 0.113, 0.114, 0.113, 0.111, 0.107, 0.105, 0.102, 0.101, 0.087, 0.097, -0.010, 0.030, 0.046, 0.110, 0.099, 0.098, 0.092, 0.087, 0.086, 0.093, 0.098, 0.102, 0.097, 0.096, 0.098, 0.098, 0.105, 0.109, 0.106, 0.104, 0.101, 0.099, 0.109, 0.108, 0.106, 0.112, 0.111]
+    }
+
+    def __init__(self, urdf_path="./urdf/nico_grasper.urdf", motor_config='./nico_humanoid_upper_rh7d_ukba.json', connect_robot=True, gui=False):
         """
         Initializes the Grasper class.
 
@@ -75,6 +107,7 @@ class Grasper:
         self.end_effector_index_r = -1
         self.end_effector_index_l = -1
         self.end_effector_index = -1
+        self.eyesight_link_index = -1
         self.ori = [0,0,0]
         self.robot = None # For nicomotion hardware interface
         self.is_pybullet_connected = False
@@ -91,20 +124,60 @@ class Grasper:
             function='multiquadric'                 # possible options: linear, gaussian
         )
         self.righthand_rbf_z = Rbf(
-            self.RIGHTHAND_RBF_POINTS['x'][0:18] + self.RIGHTHAND_RBF_POINTS['x'][23:29] + self.RIGHTHAND_RBF_POINTS['x'][30:],
-            self.RIGHTHAND_RBF_POINTS['y'][0:18] + self.RIGHTHAND_RBF_POINTS['y'][23:29] + self.RIGHTHAND_RBF_POINTS['y'][30:],
+            self.RIGHTHAND_RBF_POINTS['x'][0:18] + self.RIGHTHAND_RBF_POINTS['x'][20:],
+            self.RIGHTHAND_RBF_POINTS['y'][0:18] + self.RIGHTHAND_RBF_POINTS['y'][20:],
             self.RIGHTHAND_RBF_POINTS['z'],
             function='multiquadric'                 # possible options: linear, gaussian
         )
+        self.lefthand_rbf_yaw = Rbf(
+            self.LEFTHAND_RBF_POINTS['x'],
+            self.LEFTHAND_RBF_POINTS['y'],
+            self.LEFTHAND_RBF_POINTS['yaw'],
+            function='multiquadric'                 # possible options: linear, gaussian
+        )
+        self.lefthand_rbf_z = Rbf(
+            self.LEFTHAND_RBF_POINTS['x'][0:18] + self.LEFTHAND_RBF_POINTS['x'][20:],
+            self.LEFTHAND_RBF_POINTS['y'][0:18] + self.LEFTHAND_RBF_POINTS['y'][20:],
+            self.LEFTHAND_RBF_POINTS['z'],
+            function='multiquadric'                 # possible options: linear, gaussian
+        )
+
+        self.xy2xy_model = keras.models.load_model('nn_models/xy_to_xy/xy_to_xy_model.keras')
+        self.xy2xy_mean_std = {}
+        with open("nn_models/xy_to_xy/xy_to_xy_model_mean_std.txt", "r") as f:
+            data = f.read().split('\n')[0].split(' ')
+            self.xy2xy_mean_std['x_mean'] = float(data[0])
+            self.xy2xy_mean_std['x_std'] = float(data[1])
+            self.xy2xy_mean_std['y_mean'] = float(data[2])
+            self.xy2xy_mean_std['y_std'] = float(data[3])
+        
+        self.xy2xyz_model = keras.models.load_model('nn_models/xy_to_xyz/xy_to_xyz_model.keras')
+        self.xy2xyz_mean_std = {}
+        with open("nn_models/xy_to_xyz/xy_to_xyz_model_mean_std.txt", "r") as f:
+            data = f.read().split('\n')[0].split(' ')
+            self.xy2xyz_mean_std['x_mean'] = float(data[0])
+            self.xy2xyz_mean_std['x_std'] = float(data[1])
+            self.xy2xyz_mean_std['y_mean'] = float(data[2])
+            self.xy2xyz_mean_std['y_std'] = float(data[3])
 
         try:
             # Connect to PyBullet (GUI or DIRECT)
-            self.physics_client = p.connect(p.DIRECT)
+            if gui:
+                self.physics_client = p.connect(p.GUI)
+                p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+                p.resetDebugVisualizerCamera(cameraDistance=1, cameraYaw=90, cameraPitch=-40, cameraTargetPosition=[0, 0, 0])
+
+                scene_uid = p.loadURDF(self.SCENE_PATH, useFixedBase=True)
+                texture_id = p.loadTexture(self.TEXTURE_PATH)
+                p.changeVisualShape(scene_uid, -1, rgbaColor=[1, 1, 1, 1], textureUniqueId=texture_id)
+                p.resetBasePositionAndOrientation(scene_uid, [0.0, 0.0, -0.73], p.getQuaternionFromEuler([0, 0, -pi / 2]))
+            else:
+                self.physics_client = p.connect(p.DIRECT)
             self.is_pybullet_connected = True
             print(f"Connected to PyBullet")
 
             # Load robot slightly above ground in GUI mode
-            self.robot_id =p.loadURDF(urdf_path, useFixedBase=True)
+            self.robot_id = p.loadURDF(urdf_path, useFixedBase=True)
             self.num_joints = p.getNumJoints(self.robot_id)
             self._get_joints_limits()
             print(f"Loaded URDF: {urdf_path}")
@@ -137,7 +210,11 @@ class Grasper:
         else:
              # Not attempting to connect robot
              self.is_robot_connected = False
-
+        
+        # if gui:
+        #     thread_real2sim = threading.Thread(target=self.replicate_rr, daemon=True)
+        #     thread_real2sim.start()
+    
     def _get_joints_limits(self):
         """
         Internal method to retrieve joint limits and info from PyBullet model.
@@ -194,6 +271,9 @@ class Grasper:
                 end_effector_index_l = jid
             if link_name_bytes.decode("utf-8") == 'head': # Make sure your URDF defines this link name
                 end_effector_index_h = jid
+            if link_name_bytes.decode("utf-8") == 'sight':
+                print(f"joint name with link sight: {joint_name_bytes.decode('utf-8')}")
+                self.eyesight_link_index = jid
                 
 
         self.joints_limits_l = joints_limits_l
@@ -227,7 +307,8 @@ class Grasper:
             return None
         
         self.end_effector_index = self.end_effector_index_r if side == 'right' else self.end_effector_index_l
-        self.ori = ori_euler if side == 'right' else [-abs(x) for x in ori_euler]
+        # self.ori = ori_euler if side == 'right' else [-abs(x) for x in ori_euler]
+        self.ori = ori_euler
         if self.end_effector_index < 0:
             print("End effector index not found. Cannot calculate IK.")
             return None
@@ -317,6 +398,10 @@ class Grasper:
                  # nicodegrees_dict[nicojoint] = None
 
         return nicodegrees_dict # Return the dictionary
+    
+    def speed_control(self, initial, target, duration):
+        speed_to_reach = (abs((float(initial) - float(target)) / float(1260 * duration)))
+        return speed_to_reach
 
     ### Non IK related methods ###
 
@@ -499,6 +584,14 @@ class Grasper:
         self.open_hand()
         self.move_to_pose('reset')
         time.sleep(self.DELAY)
+    
+    def replicate_rr(self):
+        while True:
+            actual_position = self.get_real_joint_angles()
+            for i in range(len(self.joint_indices)):
+                joint_name = self.joint_names[i]
+                p.resetJointState(self.robot_id, self.joint_indices[i], self.nicodeg2rad(joint_name, actual_position[joint_name]))
+            p.stepSimulation()
 
     ## IK related methods ##
 
@@ -538,12 +631,18 @@ class Grasper:
         ori = list(ori)
 
         if autozpos:
-            # pos[2] = calculate_z(pos[0], pos[1]) + 0.04
-            pos[2] = self.righthand_rbf_z(pos[0], pos[1])
+            if side.lower() == 'left':
+                pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
+            else:
+                # pos[2] = calculate_z(pos[0], pos[1]) + 0.04
+                pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
 
         if autoori:
-            # ori[2] = self.compute_ori_from_pos(pos)
-            ori[2] = self.righthand_rbf_yaw(pos[0], pos[1])
+            if side.lower() == 'left':
+                ori[2] = self.lefthand_rbf_yaw(pos[0], pos[1])
+            else:
+                # ori[2] = self.compute_ori_from_pos(pos)
+                ori[2] = self.righthand_rbf_yaw(pos[0], pos[1])
 
         ik_solution_nico_deg = self.rad2nicodeg(self.joint_names, self.calculate_ik(side, pos, ori))
 
@@ -584,7 +683,7 @@ class Grasper:
                     # Execute the movement command
                     self.robot.setAngle(joint_name, float(angle_deg), self.speed)
                     success_count += 1
-                    print(f"  Set {joint_name} to {angle_deg:.2f} degrees.")
+                    # print(f"  Set {joint_name} to {angle_deg:.2f} degrees.")
                 else:
                     print(f"  Skipping {joint_name} due to invalid angle.")
             time.sleep(self.delay)  # Delay after the move completes
@@ -644,10 +743,10 @@ class Grasper:
                 r_joint, r_angle = right_joints[i]
                 if l_angle is not None:
                     self.robot.setAngle(l_joint, float(l_angle), self.speed)
-                    print(f"  Set {l_joint} to {l_angle:.2f} degrees.")
+                    # print(f"  Set {l_joint} to {l_angle:.2f} degrees.")
                 if r_angle is not None:
                     self.robot.setAngle(r_joint, float(r_angle), self.speed)
-                    print(f"  Set {r_joint} to {r_angle:.2f} degrees.")
+                    # print(f"  Set {r_joint} to {r_angle:.2f} degrees.")
                 success_count += 1
             time.sleep(self.delay)
             print(f"Both arms successfully moved to {success_count} joint positions.")
@@ -710,15 +809,15 @@ class Grasper:
                 r_joint, r_angle = right_joints[i]
                 if l_angle is not None:
                     self.robot.setAngle(l_joint, float(l_angle), self.speed)
-                    print(f"  Set {l_joint} to {l_angle:.2f} degrees.")
+                    # print(f"  Set {l_joint} to {l_angle:.2f} degrees.")
                 if r_angle is not None:
                     self.robot.setAngle(r_joint, float(r_angle), self.speed)
-                    print(f"  Set {r_joint} to {r_angle:.2f} degrees.")
+                    # print(f"  Set {r_joint} to {r_angle:.2f} degrees.")
                 if i==0:
                     self.robot.setAngle(head_joints[0][0], float(head_joints[0][1]), self.speed)
                     self.robot.setAngle(head_joints[1][0], float(head_joints[1][1]), self.speed)
-                    print(f"  Set {head_joints[0][0]} to {head_joints[0][1]:.2f} degrees.")
-                    print(f"  Set {head_joints[1][0]} to {head_joints[1][1]:.2f} degrees.")
+                    # print(f"  Set {head_joints[0][0]} to {head_joints[0][1]:.2f} degrees.")
+                    # print(f"  Set {head_joints[1][0]} to {head_joints[1][1]:.2f} degrees.")
                 success_count += 1
             time.sleep(self.delay)
             print(f"Both arms successfully moved to {success_count} joint positions.")
@@ -748,10 +847,10 @@ class Grasper:
             for joint_name in gripper_actuated:
                 if joint_name in 'r_thumb_z' or joint_name in 'l_thumb_z':
                     self.robot.setAngle(joint_name, self.opposite, self.speed)
-                    print(f"  Set {joint_name} to opposite position.")    
+                    # print(f"  Set {joint_name} to opposite position.")    
                 else:
                     self.robot.setAngle(joint_name, value, self.speed)
-                    print(f"  Set {joint_name} to {value}.")
+                    # print(f"  Set {joint_name} to {value}.")
             time.sleep(self.delay) # Delay after the move completes
             print(f"{side.capitalize()} gripper moved.")
         except Exception as e:
@@ -781,10 +880,10 @@ class Grasper:
             for joint_name in gripper_actuated:
                 if joint_name in 'r_thumb_z' or joint_name in 'l_thumb_z':
                     self.robot.setAngle(joint_name, self.opposite, self.speed)
-                    print(f"  Set {joint_name} to opposite position.")    
+                    # print(f"  Set {joint_name} to opposite position.")    
                 else:
                     self.robot.setAngle(joint_name, self.closed, self.speed)
-                    print(f"  Set {joint_name} to close.")
+                    # print(f"  Set {joint_name} to close.")
             time.sleep(self.delay) # Delay after the move completes
             print(f"{side.capitalize()} gripper closed.")
         except Exception as e:
@@ -799,7 +898,7 @@ class Grasper:
         print(f"Closing {name} finger...")
         try:
             self.robot.setAngle(name, self.closed , self.speed)
-            print(f"  Set {joint_name} to close.")
+            # print(f"  Set {joint_name} to close.")
             time.sleep(self.delay) # Delay after the move completes
             print(f"{name.capitalize()} finger closed.")
         except Exception as e:
@@ -830,10 +929,10 @@ class Grasper:
             for joint_name in gripper_actuated:
                 if joint_name in 'r_thumb_z' or joint_name in 'l_thumb_z':
                     self.robot.setAngle(joint_name, self.opposite, self.speed)
-                    print(f"  Set {joint_name} to opposite postion.")    
+                    # print(f"  Set {joint_name} to opposite postion.")    
                 else:
                     self.robot.setAngle(joint_name, self.open, self.speed-0.01)
-                    print(f"  Set {joint_name} to open.")
+                    # print(f"  Set {joint_name} to open.")
             time.sleep(self.delay) # Delay after the move completes
         except Exception as e:
             print(f"Error opening {side} gripper: {e}")
@@ -862,13 +961,13 @@ class Grasper:
             for joint_name in gripper_actuated:
                 if joint_name in 'r_thumb_z' or joint_name in 'l_thumb_z':
                     self.robot.setAngle(joint_name, self.opposite, self.speed)
-                    print(f"  Set {joint_name} to opposite postion.")    
+                    # print(f"  Set {joint_name} to opposite postion.")    
                 if joint_name in 'r_indexfinger_x' or joint_name in 'l_indexfinger_x':
                     self.robot.setAngle(joint_name, self.open, self.speed)
-                    print(f"  Set {joint_name} to opposite postion.")   
+                    # print(f"  Set {joint_name} to opposite postion.")   
                 else:
                     self.robot.setAngle(joint_name, self.closed, self.speed-0.01)
-                    print(f"  Set {joint_name} to open.")
+                    # print(f"  Set {joint_name} to open.")
             time.sleep(self.delay) # Delay after the move completes
         except Exception as e:
             print(f"Error opening {side} gripper: {e}")
@@ -882,9 +981,9 @@ class Grasper:
         print(f"Opening {name} finger...")
         try:
             self.robot.setAngle(name, self.open , self.speed)
-            print(f"  Set {joint_name} to close.")
+            # print(f"  Set {joint_name} to close.")
             time.sleep(self.delay) # Delay after the move completes
-            print(f"{side.capitalize()} gripper opened.")
+            # print(f"{side.capitalize()} gripper opened.")
         except Exception as e:
             print(f"Error opening {name} finger: {e}")
     
@@ -965,17 +1064,21 @@ class Grasper:
                 # Execute the movement command
                 self.robot.setAngle(joint_name, float(angle_deg), self.speed)
                 #success_count += 1
-                print(f"  Set {joint_name} to {angle_deg:.2f} degrees.")
+                # print(f"  Set {joint_name} to {angle_deg:.2f} degrees.")
             else:
                 print(f"  Skipping {joint_name} due to invalid angle.")
         time.sleep(self.delay/2)  # Delay after the move completes
 
     def pick_object(self, pos, ori, side, autozpos=False, autoori=False):
         if autozpos:
-            # pos[2] = calculate_z(pos[0], pos[1]) + 0.04
-            pos[2] = self.righthand_rbf_z(pos[0], pos[1])
+            if side.lower() == 'left':
+                pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
+            else:
+                pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
         self.move_arm([pos[0],pos[1],pos[2]+0.12], ori, side, autoori=autoori)
+        time.sleep(1)
         self.move_arm(pos, ori, side, autoori=autoori)
+        time.sleep(1)
         self.close_gripper(side)
         self.move_arm([pos[0],pos[1],pos[2]+0.12], ori, side, autoori=autoori) # Close right gripper
 
@@ -990,6 +1093,10 @@ class Grasper:
         self.move_arm(pos, ori, side)
         self.open_gripper(side)
         self.move_arm([pos[0],pos[1],pos[2]+0.15], ori, side)
+    
+    def init_position_full(self):
+        for joint_name, angle in self.INIT_POS.items():
+            self.robot.setAngle(joint_name, angle, self.speed)
     
     def init_position(self, pos, ori, side):
         self.move_arm(pos, ori, side)
@@ -1047,7 +1154,9 @@ class Grasper:
                      last_position[k] = actual
                  # else:
                  #    print(f"Warning: Joint '{k}' not found or getAngle not available.")
-            print("Current hardware joint angles:", last_position)
+            last_position['r_littlefinger_x'] = last_position['r_middlefingers_x']
+            last_position['l_littlefinger_x'] = last_position['l_middlefingers_x']
+            # print("Current hardware joint angles:", last_position)
             return last_position
         except Exception as e:
             print(f"Error reading hardware joint angles: {e}")
@@ -1073,6 +1182,68 @@ class Grasper:
             # joint_name = self.joint_names[i] # Assuming self.joint_names is correctly populated and ordered
             # print(f"  Joint index {joint_index} set to {target_angle:.4f} rad")
         print("Simulation pose set.")
+    
+    def move_head(self, target_z, target_y):
+        # motors:   
+        #           head_z: -90 : 90
+        #           head_y: -50 : 25
+        head_z = self.robot.getAngle("head_z")
+        head_y = self.robot.getAngle("head_y")
+
+        target_z = min(max(target_z, -90), 90)
+        target_y = min(max(target_y, -50), 25)
+
+        self.robot.setAngle("head_z", target_z, self.speed_control(head_z, target_z, 1))
+        self.robot.setAngle("head_y", target_y, self.speed_control(head_y, target_y, 1))
+    
+    def get_target_position(self, target_z=0.05):
+        head_z = self.robot.getAngle("head_z")
+        head_y = self.robot.getAngle("head_y")
+        sight_link_pos = p.getLinkState(self.robot_id, self.eyesight_link_index)[0]
+
+        z_diff = sight_link_pos[2] - target_z
+        plain_diff = z_diff * tan(deg2rad(90 + head_y))
+
+        x_diff = plain_diff * cos(deg2rad(head_z))
+        y_diff = plain_diff * sin(deg2rad(head_z))
+
+        return [sight_link_pos[0] + x_diff, sight_link_pos[1] + y_diff, target_z]
+
+    def get_xy2xy_prediction(self, x, y):
+        x_mean = self.xy2xy_mean_std['x_mean']
+        x_std = self.xy2xy_mean_std['x_std']
+        y_mean = self.xy2xy_mean_std['y_mean']
+        y_std = self.xy2xy_mean_std['y_std']
+
+        x_tab, y_tab = sim2tab(x, y)
+
+        target = array([[x_tab, y_tab]])
+        print(f"Input target: {target}")
+        target_norm = (target - x_mean) / x_std
+        print(f"Normalized target: {target_norm}")
+
+        pred_norm = self.xy2xy_model.predict(target_norm, verbose=0)
+        pred = pred_norm * y_std + y_mean
+
+        return pred[0]
+
+    def get_xy2xyz_prediction(self, x, y):
+        x_mean = self.xy2xyz_mean_std['x_mean']
+        x_std = self.xy2xyz_mean_std['x_std']
+        y_mean = self.xy2xyz_mean_std['y_mean']
+        y_std = self.xy2xyz_mean_std['y_std']
+
+        x_tab, y_tab = sim2tab(x, y)
+
+        target = array([[x_tab, y_tab]])
+        print(f"Input target: {target}")
+        target_norm = (target - x_mean) / x_std
+        print(f"Normalized target: {target_norm}")
+
+        pred_norm = self.xy2xyz_model.predict(target_norm, verbose=0)
+        pred = pred_norm * y_std + y_mean
+
+        return pred[0]
 
     def disconnect(self):
         """Disconnects from PyBullet and potentially cleans up hardware resources."""

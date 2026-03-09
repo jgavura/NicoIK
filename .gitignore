@@ -1,3 +1,12 @@
 __pycache__/calibration_matrices.cpython-37.pyc
 __pycache__/sim_height_calculation.cpython-37.pyc
 .idea/
+
+# datasets
+# custom_dataset/
+# custom_dataset_hand/
+# custom_dataset_hand_2/
+
+# models
+custom_dataset_models/
+yolo/

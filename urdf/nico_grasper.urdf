@@ -94,9 +94,9 @@
 	</joint>
 	<link name="sight">
     	<visual>
-      		<origin rpy="0 1.67 0" xyz="0.1 0.0 0.06"/>
+      		<origin rpy="0 1.57 0" xyz="0.3 0 -0.005"/>
       		<geometry>
-        		<cylinder radius="0.001" length = "0.03"/>
+        		<cylinder radius="0.001" length = "0.6"/>
       		</geometry>
     	</visual>
 		<inertial>
@@ -108,7 +108,7 @@
 	<joint name="eyesight" type="fixed">
 		<parent link="head"/>
 		<child link="sight"/>
-		<origin rpy="0 0 0" xyz="0 0.0 0.0"/>
+		<origin rpy="0 0 0" xyz="0.1 0.0 0.095"/>
 		<axis xyz="0 0 0"/>
 		<limit effort="30" lower="-0.8726" upper="0.4363" velocity="1"/>
 	</joint>
@@ -381,7 +381,7 @@
 		<axis xyz="0 1 0"/>
 		<limit effort="30" lower="-2.57" upper="0" velocity="1"/>
 	</joint>
-	<joint name="r_litlefinger_x" type="revolute">
+	<joint name="r_littlefinger_x" type="revolute">
 		<parent link="right_palm"/>
 		<child link="r_littlefinger"/>
 		<origin rpy="0 0 0" xyz="0.00 0.02 -0.06"/>
@@ -707,7 +707,7 @@
 		<axis xyz="0 1 0"/>
 		<limit effort="30" lower="-2.57" upper="0" velocity="1"/>
 	</joint>
-	<joint name="l_litlefinger_x" type="revolute">
+	<joint name="l_littlefinger_x" type="revolute">
 		<parent link="left_palm"/>
 		<child link="l_littlefinger"/>
 		<origin rpy="0 0 0" xyz="0.00 0.02 -0.06"/>
