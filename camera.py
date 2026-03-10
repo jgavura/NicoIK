@@ -111,19 +111,51 @@ class Camera:
         right_hands = sorted(right_hands, key=lambda x: x[4], reverse=True)  # sort by confidence
         left_hands = sorted(left_hands, key=lambda x: x[4], reverse=True)    # sort by confidence
             
-        if len(right_hands) > 1 and len(left_hands) == 0:
-            left_hand = right_hands[1]
-            left_hand[5] = left_id
-            left_hand[4] = -left_hand[4]        # make confidence negative to indicate it's a duplicate
-        elif len(left_hands) > 1 and len(right_hands) == 0:
-            right_hand = left_hands[1]
-            right_hand[5] = right_id
-            right_hand[4] = -right_hand[4]      # make confidence negative to indicate it's a duplicate
-        
-        if len(right_hands) > 0:
+        if len(right_hands) >= 1:
             right_hand = right_hands[0]
-        if len(left_hands) > 0:
+
+            if len(left_hands) == 0:
+                for hand in right_hands[1:]:
+                    if self.get_pos_relation_of_boxes(right_hand, hand) != 0:
+                        left_hand = hand
+                        left_hand[5] = left_id
+                        left_hand[4] = -left_hand[4]        # make confidence negative to indicate it's a duplicate
+        
+        if len(left_hands) >= 1:
             left_hand = left_hands[0]
+
+            if len(right_hands) == 0:
+                for hand in left_hands[1:]:
+                    if self.get_pos_relation_of_boxes(left_hand, hand) != 0:
+                        right_hand = hand
+                        right_hand[5] = right_id
+                        right_hand[4] = -right_hand[4]      # make confidence negative to indicate it's a duplicate
+
+        if left_hand is not None and right_hand is not None and self.get_pos_relation_of_boxes(left_hand, right_hand) == 0:
+            # print('Two hands at the same position')
+
+            if left_hand[4] > right_hand[4]:
+                right_hand = None
+
+                for hand in right_hands[1:]+left_hands[1:]:
+                    if self.get_pos_relation_of_boxes(left_hand, hand) != 0:
+                        right_hand = hand
+                        right_hand[5] = right_id
+                        right_hand[4] = -right_hand[4]      # make confidence negative to indicate it's a duplicate
+            
+            else:
+                left_hand = None
+                
+                for hand in left_hands[1:]+right_hands[1:]:
+                    if self.get_pos_relation_of_boxes(right_hand, hand) != 0:
+                        left_hand = hand
+                        left_hand[5] = left_id
+                        left_hand[4] = -left_hand[4]        # make confidence negative to indicate it's a duplicate
+
+        if left_hand is not None and right_hand is not None and self.get_pos_relation_of_boxes(left_hand, right_hand) == -1:
+            left_hand[5], right_hand[5] = right_id, left_id
+            left_hand, right_hand = right_hand, left_hand
+            # print('Switched hands')
         
         if right_hand is not None:
             filtered_result.append(right_hand)
@@ -134,6 +166,31 @@ class Camera:
             return torch.empty((0, 6), device=result.boxes.data.device)
         return torch.stack(filtered_result)
     
+    def get_pos_relation_of_boxes(self, box1, box2):
+        """
+        Ret: 
+            0  when near each other
+            1  when box2 is to the right from box1
+            -1 when box2 is to the left from box1
+        """
+        box1_x1, box1_y1, box1_x2, box1_y2 = box1[0], box1[1], box1[2], box1[3]
+        box1_cx = (box1_x1 + box1_x2) / 2
+        box1_cy = (box1_y1 + box1_y2) / 2
+
+        box2_x1, box2_y1, box2_x2, box2_y2 = box2[0], box2[1], box2[2], box2[3]
+        box2_cx = (box2_x1 + box2_x2) / 2
+        box2_cy = (box2_y1 + box2_y2) / 2
+
+        # print(f'box1_cx: {box1_cx}, box2_cx: {box2_cx}')
+
+        dist = torch.sqrt((box1_cx - box2_cx)**2 + (box1_cy - box2_cy)**2)
+        if dist <= 10:
+            return 0
+        
+        if box1_cx < box2_cx:
+            return 1
+        
+        return -1
     
     def find(self, model, target_class):
         self.cap.grab()                                     # skip one frame for clearing the buffer

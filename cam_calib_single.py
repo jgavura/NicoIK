@@ -69,26 +69,26 @@ mean_error /= len(objpoints)
 print("Mean reprojection error:", mean_error)
 
 
-# # visual test
-# for i, fname in enumerate(images):
-#     img = cv2.imread(fname)
-#     img_vis = img.copy()
+# visual test
+for i, fname in enumerate(images):
+    img = cv2.imread(fname)
+    img_vis = img.copy()
     
-#     # detegovanie a zobrazenie rohova
-#     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-#     ret, corners = cv2.findChessboardCorners(gray, CHECKERBOARD, None)
-#     if ret:
-#         corners2 = cv2.cornerSubPix(gray, corners, (3,3), (-1,-1), (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6))
-#         cv2.drawChessboardCorners(img_vis, CHECKERBOARD, corners2, ret)
+    # detegovanie a zobrazenie rohova
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    ret, corners = cv2.findChessboardCorners(gray, CHECKERBOARD, None)
+    if ret:
+        corners2 = cv2.cornerSubPix(gray, corners, (3,3), (-1,-1), (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6))
+        cv2.drawChessboardCorners(img_vis, CHECKERBOARD, corners2, ret)
     
-#         # UNDISTORT IMAGE
-#         h, w = img.shape[:2]
-#         map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, (w,h), cv2.CV_16SC2)
-#         undistorted = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR)
+        # UNDISTORT IMAGE
+        h, w = img.shape[:2]
+        map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, (w,h), cv2.CV_16SC2)
+        undistorted = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR)
     
-#         # zobraz
-#         cv2.imshow("Corners + Projection", img_vis)
-#         cv2.imshow("Undistorted", undistorted)
-#         print(f"Zobrazený obrázok {i+1}/{len(images)}: {fname}")
-#         cv2.waitKey(0)  # stlačením klávesu pokračuješ na ďalší
-# cv2.destroyAllWindows()
+        # zobraz
+        cv2.imshow("Corners + Projection", img_vis)
+        cv2.imshow("Undistorted", undistorted)
+        print(f"Zobrazený obrázok {i+1}/{len(images)}: {fname}")
+        cv2.waitKey(0)  # stlačením klávesu pokračuješ na ďalší
+cv2.destroyAllWindows()

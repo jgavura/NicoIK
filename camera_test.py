@@ -167,7 +167,7 @@ except Exception as e:
 num_joints = p.getNumJoints(robot_id)
 joints_limits, joints_ranges, joints_rest_poses, joint_names, link_names, joint_indices = get_joints_limits(robot_id, num_joints)
 
-model = YOLO("custom_dataset_models/yolo12n_custom_dataset_best.pt")
+model = YOLO("custom_dataset_models/yolo12n_custom_hands_1+2.pt")
 model.overrides['verbose'] = False   # True for logging in console
 camera_right = Camera("right")
 camera_left = Camera("left")
@@ -196,8 +196,8 @@ while True:
     target_coord_diffs_l = None
     
     if annotate:
-        target_coord_diffs_r = camera_right.annotate(model, "Tomato", filter_hands=False)
-        target_coord_diffs_l = camera_left.annotate(model, "Tomato", filter_hands=False )
+        target_coord_diffs_r = camera_right.annotate(model, "Tomato", filter_hands=True)
+        target_coord_diffs_l = camera_left.annotate(model, "Tomato", filter_hands=True )
     else:
         camera_right.show()
         camera_left.show()
