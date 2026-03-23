@@ -1,10 +1,27 @@
 import cv2
 import numpy as np
-from stereo_vision import Stereo_vision
+from stereo_vision import StereoVision
+from grasper import Grasper
+
+
+print("Initializing Grasper...")
+try:
+    grasper = Grasper(
+        urdf_path="./urdf/nico_grasper.urdf",
+        motor_config="./nico_humanoid_upper_rh7d_ukba.json",
+        connect_robot=True,     # Connect to the real robot hardware
+        gui=True
+    )
+    print("Grasper initialized successfully for real robot.")
+except Exception as e:
+    print(f"Error initializing Grasper for real robot: {e}")
+
+
+grasper.init_position_full()
 
 
 config_file = "stereo_intrinsics/stereo_config.npz"
-sv = Stereo_vision(config_file)
+sv = StereoVision(config_file)
 
 # Camera Initialization
 cap_l = cv2.VideoCapture(2, cv2.CAP_DSHOW)
@@ -52,15 +69,19 @@ while True:
             # Process the frames we just captured
             rect_l, filtered_disp = sv.process_frame(frame_l, frame_r)
             depth_map = sv.get_visual_depth(filtered_disp)
+
+            head_z = grasper.robot.getAngle("head_z")
+            head_y = grasper.robot.getAngle("head_y")
+            mouse_callback_params = {"head_z": head_z, "head_y": head_y}
             
             # 1. Show the Rectified "Normal" Image
             cv2.namedWindow(win_rect)
-            cv2.setMouseCallback(win_rect, sv.mouse_callback)
+            cv2.setMouseCallback(win_rect, sv.mouse_callback, mouse_callback_params)
             cv2.imshow(win_rect, rect_l)
             
             # 2. Show the Heatmap Image
             cv2.namedWindow(win_depth)
-            cv2.setMouseCallback(win_depth, sv.mouse_callback)
+            cv2.setMouseCallback(win_depth, sv.mouse_callback, mouse_callback_params)
             cv2.imshow(win_depth, depth_map)
             
             print("Analysis Ready. You can click on BOTH windows to measure distance.")

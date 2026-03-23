@@ -65,6 +65,17 @@ box_id3 = p.createMultiBody(
         basePosition=[0, 0, 0]
     )
 
+box_id4 = p.createMultiBody(                                 # left eye
+        baseMass=0, # Set mass to 0 if it's only visual
+        baseCollisionShapeIndex=-1, # No collision shape
+        baseVisualShapeIndex=p.createVisualShape(p.GEOM_SPHERE, radius=0.01, rgbaColor=[1, 0.0, 1, 0.8]), # Visual shape only
+        basePosition=[0, 0, 0]
+    )
+
+
+# sight_link = p.getLinkState(grasper.robot_id, grasper.eyesight_link_index)
+# new_pos, _ = p.multiplyTransforms(sight_link[0], sight_link[1], [-0.02, 0.035, 0.0], [0, 0, 0, 1])
+# p.resetBasePositionAndOrientation(box_id4, new_pos, [0, 0, 0, 1])
 
 # print(f"joint name: {p.getJointInfo(grasper.robot_id, grasper.eyesight_link_index)[1]}")
 

@@ -14,6 +14,10 @@ map2_r = data['map2_r']
 
 print(f"Loaded rectification maps from {config_path}")
 
+# T = data['T']
+# baseline = np.linalg.norm(T)            # distance between eyes
+# print(f"Baseline from calibration: {baseline:.4f} meters")
+
 # --- 2. LOAD A TEST IMAGE PAIR ---
 # Replace with your actual image paths
 left_images = sorted(glob.glob("stereo_calib_9x6_30mm/left/*.jpg"))

@@ -1,8 +1,9 @@
 import cv2
 import numpy as np
+from nico_coord_transformer import NicoCoordinateTransformer
 
 # --- STEREO VISION CLASS ---
-class Stereo_vision:
+class StereoVision:
     def __init__(self, config_path):
         # 1. Load calibration data
         data = np.load(config_path)
@@ -37,6 +38,9 @@ class Stereo_vision:
         # 4. Storage for debug data
         self.last_points_3d = None
 
+        # 5. Set up cv2sim coordiante transformer
+        self.transformer = NicoCoordinateTransformer(baseline_m=0.07)
+
     def process_frame(self, frame_l, frame_r):
         """ Rectifies images and updates 3D point cloud """
         rect_l = cv2.remap(frame_l, self.map1_l, self.map2_l, cv2.INTER_LINEAR)
@@ -68,14 +72,28 @@ class Stereo_vision:
         """ Mouse handler to print distance info """
         if event == cv2.EVENT_LBUTTONDOWN:
             if self.last_points_3d is not None:
-                point = self.last_points_3d[y, x]
-                dist = np.sqrt(np.sum(point**2))
+                cv_point = self.last_points_3d[y, x]
+                dist = np.sqrt(np.sum(cv_point**2))
                 
                 print("-" * 30)
                 print(f"DEBUG INFO at Pixel [{x}, {y}]:")
-                if np.isinf(dist) or dist > 20 or point[2] <= 0:
+                if np.isinf(dist) or dist > 20 or cv_point[2] <= 0:
                     print("  Status: INVALID POINT")
                 else:
-                    print(f"  Z (Depth): {point[2]:.3f} m")
+                    print("  [ CAMERA FRAME (Left Eye) ]")
+                    print(f"  Z (Depth): {cv_point[2]:.3f} m")
                     print(f"  Direct Distance: {dist:.3f} m")
-                    print(f"  3D Coordinates: X={point[0]:.2f}, Y={point[1]:.2f}, Z={point[2]:.2f}")
+                    print(f"  3D Coordinates: X={cv_point[0]:.2f}, Y={cv_point[1]:.2f}, Z={cv_point}")
+
+                    head_z = param["head_z"]
+                    head_y = param["head_y"]
+
+                    torso_point = self.transformer.transform_cv_point_to_torso(
+                        cv_point, head_z, head_y
+                    )
+
+                    print("  [ ROBOT TORSO FRAME ]")
+                    print(f"    X (Forward): {torso_point[0]:.3f} m")
+                    print(f"    Y (Left):    {torso_point[1]:.3f} m")
+                    print(f"    Z (Up):      {torso_point[2]:.3f} m")
+                    print(f"    Total Dist from Torso: {np.linalg.norm(torso_point):.3f} m")

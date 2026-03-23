@@ -132,7 +132,7 @@ class Camera:
                         right_hand[4] = -right_hand[4]      # make confidence negative to indicate it's a duplicate
 
         if left_hand is not None and right_hand is not None and self.get_pos_relation_of_boxes(left_hand, right_hand) == 0:
-            # print('Two hands at the same position')
+            print('Two hands at the same position')
 
             if left_hand[4] > right_hand[4]:
                 right_hand = None
@@ -155,7 +155,7 @@ class Camera:
         if left_hand is not None and right_hand is not None and self.get_pos_relation_of_boxes(left_hand, right_hand) == -1:
             left_hand[5], right_hand[5] = right_id, left_id
             left_hand, right_hand = right_hand, left_hand
-            # print('Switched hands')
+            print('Switched hands')
         
         if right_hand is not None:
             filtered_result.append(right_hand)
