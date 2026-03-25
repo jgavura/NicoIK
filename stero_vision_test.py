@@ -1,23 +1,47 @@
 import cv2
 import numpy as np
 from stereo_vision import StereoVision
-from grasper import Grasper
+import pybullet as p
 
 
-print("Initializing Grasper...")
+SPEED = 0.03
+INIT_POS = {  # both hands down
+        'head_z': 0.0, 'head_y': 0.0, 'r_shoulder_z': -30, 'r_shoulder_y': 13,
+        'r_arm_x': 0, 'r_elbow_y': 104, 'r_wrist_z': -4, 'r_wrist_x': -55,
+        'r_thumb_z': -62, 'r_thumb_x': -180, 'r_indexfinger_x': -170, 'r_middlefingers_x': -180,
+        'l_shoulder_z': -30.0, 'l_shoulder_y': 13.0, 'l_arm_x': 0.0, 'l_elbow_y': 104.0,
+        'l_wrist_z': -4.0, 'l_wrist_x': -55.0, 'l_thumb_z': -62.0, 'l_thumb_x': -180.0,
+        'l_indexfinger_x': -170.0, 'l_middlefingers_x': -180.0
+}
+
+
+def init_position_full(robot):
+        for joint_name, angle in INIT_POS.items():
+            robot.setAngle(joint_name, angle, SPEED)
+
+def disable_torque_arms(robot, joint_names):
+    for joint in joint_names:
+        if 'head' not in joint:
+            robot.disableTorque(joint)
+
+def enable_torque_arms(robot, joint_names):
+    for joint in joint_names:
+        if 'head' not in joint:
+            robot.enableTorque(joint)
+
+
+from nicomotion.Motion import Motion
+motorConfig = './nico_humanoid_upper_rh7d_ukba.json'
 try:
-    grasper = Grasper(
-        urdf_path="./urdf/nico_grasper.urdf",
-        motor_config="./nico_humanoid_upper_rh7d_ukba.json",
-        connect_robot=True,     # Connect to the real robot hardware
-        gui=True
-    )
-    print("Grasper initialized successfully for real robot.")
+    robot = Motion(motorConfig=motorConfig)
+    print('Robot initialized')
 except Exception as e:
-    print(f"Error initializing Grasper for real robot: {e}")
+    print('Motors are not operational')
+    print(e)
+    exit()
 
 
-grasper.init_position_full()
+init_position_full(robot)
 
 
 config_file = "stereo_intrinsics/stereo_config.npz"
@@ -37,6 +61,8 @@ print("Controls:")
 print("  [SPACE] - Freeze, Analyze and Measure")
 print("  [SPACE] - Close analysis and Resume Live Feed")
 print("  [Q]     - Quit")
+
+arms_torque_enabled = True
 
 while True:
     if not is_frozen:
@@ -62,35 +88,68 @@ while True:
     
     elif key == ord(' '):
         if not is_frozen:
-            # --- ACTION: FREEZE AND COMPUTE ---
             print("\nFREEZING... Calculating 3D Depth...")
             is_frozen = True
             
-            # Process the frames we just captured
+            # 1. Process frames
             rect_l, filtered_disp = sv.process_frame(frame_l, frame_r)
             depth_map = sv.get_visual_depth(filtered_disp)
 
-            head_z = grasper.robot.getAngle("head_z")
-            head_y = grasper.robot.getAngle("head_y")
-            mouse_callback_params = {"head_z": head_z, "head_y": head_y}
+            # 2. Crop 20%
+            h, w = rect_l.shape[:2]
+            off_x, off_y = int(w * 0.20), int(h * 0.20)
+            rect_l_cropped = rect_l[off_y:-off_y, off_x:-off_x]
+            depth_map_cropped = depth_map[off_y:-off_y, off_x:-off_x]
+
+            # 3. ZOOM / RESIZE (e.g., 2x bigger)
+            scale = 2.0 
+            new_w = int(rect_l_cropped.shape[1] * scale)
+            new_h = int(rect_l_cropped.shape[0] * scale)
             
-            # 1. Show the Rectified "Normal" Image
+            # Use INTER_CUBIC for better quality on the normal image
+            rect_l_zoom = cv2.resize(rect_l_cropped, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
+            # Use INTER_NEAREST for depth map to keep colors sharp
+            depth_map_zoom = cv2.resize(depth_map_cropped, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
+
+            # 4. Robot state
+            head_z = robot.getAngle("head_z")
+            head_y = robot.getAngle("head_y")
+            
+            # Pass offsets AND scale to the callback
+            mouse_params = {
+                "head_z": head_z,
+                "head_y": head_y,
+                "off_x": off_x, 
+                "off_y": off_y,
+                "scale": scale
+            }
+            
+            # 5. Show ZOOMED images
             cv2.namedWindow(win_rect)
-            cv2.setMouseCallback(win_rect, sv.mouse_callback, mouse_callback_params)
-            cv2.imshow(win_rect, rect_l)
+            cv2.setMouseCallback(win_rect, sv.mouse_callback, mouse_params)
+            cv2.imshow(win_rect, rect_l_zoom)
             
-            # 2. Show the Heatmap Image
             cv2.namedWindow(win_depth)
-            cv2.setMouseCallback(win_depth, sv.mouse_callback, mouse_callback_params)
-            cv2.imshow(win_depth, depth_map)
+            cv2.setMouseCallback(win_depth, sv.mouse_callback, mouse_params)
+            cv2.imshow(win_depth, depth_map_zoom)
             
-            print("Analysis Ready. You can click on BOTH windows to measure distance.")
+            print(f"Analysis Ready. Zoom: {scale}x. Click to measure.")
         else:
             # --- ACTION: RESUME ---
             print("Resuming Live Feed...")
             is_frozen = False
             cv2.destroyWindow(win_rect)
             cv2.destroyWindow(win_depth)
+    
+    elif key == ord('a'):  # Toggle arms torque
+        joint_names = INIT_POS.keys()
+
+        if arms_torque_enabled:
+            disable_torque_arms(robot, joint_names)
+            arms_torque_enabled = False
+        else:
+            enable_torque_arms(robot, joint_names)
+            arms_torque_enabled = True
 
 # Cleanup
 cap_l.release()

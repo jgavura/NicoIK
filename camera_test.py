@@ -5,6 +5,7 @@ import pybullet as p
 from numpy import deg2rad
 from ultralytics import YOLO
 from camera import Camera
+from stereo_vision import StereoVision
 
 
 SPEED = 0.03
@@ -137,6 +138,40 @@ def save_frame(frame, side, timestamp):
     print(f"Saved frame to {file_name}")
 
 
+def debug_show_detection(frame, u, v, window_name="AI Raw Detection"):
+    """
+    Draws a crosshair and a circle at the raw coordinates for debugging.
+    """
+    if frame is None:
+        print("Debug Error: Frame is None")
+        return
+
+    # Create a copy so we don't modify the source image
+    debug_img = frame.copy()
+    
+    # Coordinates must be integers for drawing
+    u, v = int(u), int(v)
+    
+    # 1. Draw a small solid circle at the center
+    cv2.circle(debug_img, (u, v), 5, (0, 0, 255), -1) # Red BGR
+    
+    # 2. Draw a larger outer circle
+    cv2.circle(debug_img, (u, v), 15, (0, 255, 0), 2) # Green BGR
+    
+    # 3. Draw crosshairs (Vertical and Horizontal lines)
+    length = 20
+    cv2.line(debug_img, (u - length, v), (u + length, v), (0, 255, 0), 2)
+    cv2.line(debug_img, (u, v - length), (u, v + length), (0, 255, 0), 2)
+
+    # 4. Add text with coordinates
+    text = f"Raw: {u}, {v}"
+    cv2.putText(debug_img, text, (u + 20, v - 20), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+    # 5. Display
+    cv2.imshow(window_name, debug_img)
+
+
 p.connect(p.GUI)
 p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
 p.resetDebugVisualizerCamera(cameraDistance=1, cameraYaw=90, cameraPitch=-40, cameraTargetPosition=[0, 0, 0])
@@ -168,6 +203,7 @@ num_joints = p.getNumJoints(robot_id)
 joints_limits, joints_ranges, joints_rest_poses, joint_names, link_names, joint_indices = get_joints_limits(robot_id, num_joints)
 
 model = YOLO("custom_dataset_models/yolo12n_custom_hands_1+2.pt")
+# model = YOLO("custom_dataset_models/yolo12n_custom_dataset_best.pt")
 model.overrides['verbose'] = False   # True for logging in console
 camera_right = Camera("right")
 camera_left = Camera("left")
@@ -184,6 +220,9 @@ annotate = False
 
 init_position_full(robot)
 
+config_file = "stereo_intrinsics/stereo_config.npz"
+sv = StereoVision(config_file)
+
 print("Press 's' to save frames from both cameras.")
 print("Press 'a' to toggle arms torque.")
 print("Press 'h' to toggle head torque.")
@@ -192,12 +231,15 @@ print("Press 'ESC' to exit.")
 frame_index = 0
 # Main loop to capture and save frames
 while True:
-    target_coord_diffs_r = None
-    target_coord_diffs_l = None
+    target_coord_diffs_r, frame_r = None, None
+    target_coord_diffs_l, cx_l, cy_l, frame_l = None, None, None, None
+    head_z, head_y = None, None
     
     if annotate:
-        target_coord_diffs_r = camera_right.annotate(model, "Tomato", filter_hands=True)
-        target_coord_diffs_l = camera_left.annotate(model, "Tomato", filter_hands=True )
+        target_coord_diffs_r, _, _, frame_r = camera_right.annotate(model, "RightHand", filter_hands=True)
+        target_coord_diffs_l, cx_l, cy_l, frame_l = camera_left.annotate(model, "RightHand", filter_hands=True)
+        head_z = robot.getAngle("head_z")
+        head_y = robot.getAngle("head_y")
     else:
         camera_right.show()
         camera_left.show()
@@ -262,8 +304,6 @@ while True:
             print(f'Yolo not activated or object not found')
             continue
 
-        head_z = robot.getAngle("head_z")
-        head_y = robot.getAngle("head_y")
         x_dif = (target_coord_diffs_r[0] + target_coord_diffs_l[0]) / 2
         y_dif = (target_coord_diffs_r[1] + target_coord_diffs_l[1]) / 2
 
@@ -281,6 +321,20 @@ while True:
 
         enable_torque_head(robot)
         head_torque_enabled = True
+    
+    if key == ord('d'):             # print coordinates of an object found with yolo
+        if not target_coord_diffs_l:
+            print(f'Yolo not activated or object not found')
+            continue
+
+        print(f'target_coord_diffs_l: {target_coord_diffs_l}')
+        print(f'cx_l: {cx_l}')
+        print(f'cy_l: {cy_l}')
+        print(f'head_z: {head_z}')
+        print(f'head_y: {head_y}')
+        
+        torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y)
+        debug_show_detection(frame_l, cx_l, cy_l)
 
 
 # Release cameras and close windows

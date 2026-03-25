@@ -22,6 +22,10 @@ class Camera:
             print(f"Error when reading a frame from {self.side} camera: {e}")
     
 
+    def get_frame(self):
+        return self.cap.read()
+    
+
     def show(self):
         ret, frame = self.cap.read()
         if not ret:
@@ -56,7 +60,7 @@ class Camera:
         # draw centroid
         cv2.circle(annotated, (cam_cx, cam_cy), 3, (0, 255, 0), -1)
 
-        target_coord_difs = None
+        target_coord_difs, target_cx, target_cy = None, None, None
 
         # add centroids
         for box in results[0].boxes:
@@ -82,10 +86,12 @@ class Camera:
             if model.names[cls] == target_class:           # Replace with any target class name
                 # cy_lower = cy + h // 4                      # bit lower so that he looks at the point of contact of tablet with the object
                 target_coord_difs = (cam_cx - cx, cam_cy - cy)
+                target_cx = cx
+                target_cy = cy
 
         cv2.imshow(f"Robot {self.side} eye", annotated)
 
-        return target_coord_difs
+        return target_coord_difs, target_cx, target_cy, frame
 
 
     def filter_hands(self, model, result):
