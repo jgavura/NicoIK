@@ -163,7 +163,7 @@ class StereoVision:
         
         return None, None
     
-    def get_object_3d_position(self, frame_l, frame_r, raw_u, raw_v, head_z, head_y):
+    def get_object_3d_position(self, frame_l, frame_r, raw_u, raw_v, head_z, head_y, object_name=""):
         """
         Calculates the 3D position of an object in sim space.
         
@@ -184,6 +184,22 @@ class StereoVision:
         print(f"AI DETECTION at Raw Coordinates: [{raw_u}, {raw_v}]")
         
         if torso_p is not None:
+            if object_name == "tomato":
+                extra_depth = -0.03        # 2.5 cm
+                extra_down = 0.0           # 2 cm
+
+                cv_p_modified = cv_p.copy()
+                cv_p_modified[2] += extra_depth
+
+                torso_p_modified = self.transformer.transform_cv_point_to_torso(
+                    cv_p_modified, head_z, head_y
+                )
+
+                torso_p_modified[2] -= extra_down
+
+                torso_p = torso_p_modified
+                cv_p = cv_p_modified
+
             dist = np.sqrt(np.sum(cv_p**2))
 
             print("  [ CAMERA FRAME (Left Eye) ]")

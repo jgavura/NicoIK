@@ -69,7 +69,7 @@ box_id4 = p.createMultiBody(                                 # left eye
         baseMass=0, # Set mass to 0 if it's only visual
         baseCollisionShapeIndex=-1, # No collision shape
         baseVisualShapeIndex=p.createVisualShape(p.GEOM_SPHERE, radius=0.01, rgbaColor=[1, 0.0, 1, 0.8]), # Visual shape only
-        basePosition=[0, 0, 0]
+        basePosition=[0.2, 0.2, 0.1]
     )
 
 

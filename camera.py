@@ -68,8 +68,8 @@ class Camera:
             cx, cy = int(cx), int(cy)
             cls = int(box.cls[0])
 
-            # # draw centroid
-            # cv2.circle(annotated, (cx, cy), 5, (0, 0, 255), -1)
+            # draw centroid
+            cv2.circle(annotated, (cx, cy), 5, (0, 0, 255), -1)
             # # write coordinates next to the point
             # cv2.putText(
             #     annotated,
@@ -84,8 +84,8 @@ class Camera:
              
 
             if model.names[cls] == target_class:           # Replace with any target class name
-                # cy_lower = cy + h // 4                      # bit lower so that he looks at the point of contact of tablet with the object
-                target_coord_difs = (cam_cx - cx, cam_cy - cy)
+                cy_lower = cy + h // 4                      # bit lower so that he looks at the point of contact of tablet with the object
+                target_coord_difs = (cam_cx - cx, cam_cy - cy_lower)
                 target_cx = cx
                 target_cy = cy
 

@@ -32,24 +32,24 @@ class Grasper:
     RESET_POSE = [0,0,0,90,90,90,0,0,-180,-180,-180,-180,0.22,12.88,11.03,100.97,-24.13,-91.91,-180.0,-180.0,-180.0,-174.81]
     DROP_POSE = [0,0,-20,27,40,90,125,100,180,20,20,20,0,13,11,100,-24,-91,-180.0,-180.0,-180.0,-175]
     GRASP_POSE = [0,0,-2,34,17,122,161,-13,180,-180,-180,-180,0,13,11,100,-24,-91,-180.0,-180.0,-180.0,-175]
-    # INIT_POS = {  # both hands up
-    #     'head_z': 0.0, 'head_y': 0.0, 'r_shoulder_z': -10, 'r_shoulder_y': 87,
-    #     'r_arm_x': 88, 'r_elbow_y': 87, 'r_wrist_z': 2, 'r_wrist_x': -29,
-    #     'r_thumb_z': -1, 'r_thumb_x': 44, 'r_indexfinger_x': -90, 'r_middlefingers_x': 100.0,
-    #     'l_shoulder_z': -10, 'l_shoulder_y': 87, 'l_arm_x': 88, 'l_elbow_y': 87,
-    #     'l_wrist_z': 2, 'l_wrist_x': -29, 'l_thumb_z': -1, 'l_thumb_x': 44,
-    #     'l_indexfinger_x': -90, 'l_middlefingers_x': 100
-    # }
-    INIT_POS = {  # right hand up, left down
-        'head_z': 0.0, 'head_y': 0.0, 'r_shoulder_z': -10, 'r_shoulder_y': 87,
+    INIT_POS = {  # both hands up
+        'head_z': 0.0, 'head_y': -30.0, 'r_shoulder_z': -10, 'r_shoulder_y': 87,
         'r_arm_x': 88, 'r_elbow_y': 87, 'r_wrist_z': 2, 'r_wrist_x': -29,
         'r_thumb_z': -1, 'r_thumb_x': 44, 'r_indexfinger_x': -90, 'r_middlefingers_x': 100.0,
-        'l_shoulder_z': -30.0, 'l_shoulder_y': 13.0, 'l_arm_x': 0.0, 'l_elbow_y': 104.0,
-        'l_wrist_z': -4.0, 'l_wrist_x': -55.0, 'l_thumb_z': -62.0, 'l_thumb_x': -180.0,
-        'l_indexfinger_x': -170.0, 'l_middlefingers_x': -180.0
+        'l_shoulder_z': -10, 'l_shoulder_y': 87, 'l_arm_x': 88, 'l_elbow_y': 87,
+        'l_wrist_z': 2, 'l_wrist_x': -29, 'l_thumb_z': -1, 'l_thumb_x': 44,
+        'l_indexfinger_x': -90, 'l_middlefingers_x': 100
     }
+    # INIT_POS = {  # right hand up, left down
+    #     'head_z': 0.0, 'head_y': -30.0, 'r_shoulder_z': -10, 'r_shoulder_y': 87,
+    #     'r_arm_x': 88, 'r_elbow_y': 87, 'r_wrist_z': 2, 'r_wrist_x': -29,
+    #     'r_thumb_z': -1, 'r_thumb_x': 44, 'r_indexfinger_x': -90, 'r_middlefingers_x': 100.0,
+    #     'l_shoulder_z': -30.0, 'l_shoulder_y': 13.0, 'l_arm_x': 0.0, 'l_elbow_y': 104.0,
+    #     'l_wrist_z': -184.0, 'l_wrist_x': -55.0, 'l_thumb_z': -62.0, 'l_thumb_x': -180.0,
+    #     'l_indexfinger_x': -170.0, 'l_middlefingers_x': -180.0
+    # }
     # INIT_POS = {  # left hand up, right down
-    #     'head_z': 0.0, 'head_y': 0.0, 'r_shoulder_z': -30, 'r_shoulder_y': 13,
+    #     'head_z': 0.0, 'head_y': -30.0, 'r_shoulder_z': -30, 'r_shoulder_y': 13,
     #     'r_arm_x': 0, 'r_elbow_y': 104, 'r_wrist_z': -4, 'r_wrist_x': -55,
     #     'r_thumb_z': -62, 'r_thumb_x': -180, 'r_indexfinger_x': -170, 'r_middlefingers_x': -180,
     #     'l_shoulder_z': -10, 'l_shoulder_y': 87, 'l_arm_x': 88, 'l_elbow_y': 87,
@@ -1098,6 +1098,10 @@ class Grasper:
         for joint_name, angle in self.INIT_POS.items():
             self.robot.setAngle(joint_name, angle, self.speed)
     
+    def init_position_head(self):
+        self.robot.setAngle('head_z', self.INIT_POS['head_z'], self.SPEED)
+        self.robot.setAngle('head_y', self.INIT_POS['head_y'], self.SPEED)
+    
     def init_position(self, pos, ori, side):
         self.move_arm(pos, ori, side)
         self.open_gripper(side)
@@ -1244,6 +1248,24 @@ class Grasper:
         pred = pred_norm * y_std + y_mean
 
         return pred[0]
+    
+    def disable_torque_head(self):
+        self.robot.disableTorque("head_y")
+        self.robot.disableTorque("head_z")
+
+    def enable_torque_head(self):
+        self.robot.enableTorque("head_y")
+        self.robot.enableTorque("head_z")
+
+    def disable_torque_arms(self):
+        for joint in self.joint_names:
+            if 'head' not in joint:
+                self.robot.disableTorque(joint)
+
+    def enable_torque_arms(self):
+        for joint in self.joint_names:
+            if 'head' not in joint:
+                self.robot.enableTorque(joint)
 
     def disconnect(self):
         """Disconnects from PyBullet and potentially cleans up hardware resources."""
