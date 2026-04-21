@@ -16,7 +16,7 @@ X2Z_COEF, Y2Y_COEF = 0.37582421139136485, 0.3273428034924306
 BETA1 = [0.37536988, -0.00526618]
 BETA2 = [0.00983655, 0.33090327]
 
-FRAMES_SAVE_DIR = 'custom_dataset_2'
+FRAMES_SAVE_DIR = 'custom_dataset_3'
 
 # Function to save frame
 def save_frame(frame, side, timestamp):
@@ -76,11 +76,11 @@ box_id = p.createMultiBody(                                 # left eye
         baseMass=0, # Set mass to 0 if it's only visual
         baseCollisionShapeIndex=-1, # No collision shape
         baseVisualShapeIndex=p.createVisualShape(p.GEOM_SPHERE, radius=0.01, rgbaColor=[1, 0.0, 1, 0.8]), # Visual shape only
-        basePosition=[-0.05, 0, 0.05]
+        basePosition=[-0.05, 0, 0.0]
     )
 
 # model = YOLO("custom_dataset_models/yolo12n_custom_hands_1+2.pt")
-model = YOLO("custom_dataset_models/yolo12n_custom_dataset_best.pt")
+model = YOLO("custom_dataset_models/yolo12n_objects_1+2_+_hands_1+2.pt")
 model.overrides['verbose'] = False   # True for logging in console
 camera_right = Camera("right")
 camera_left = Camera("left")
@@ -178,7 +178,16 @@ while True:
     #         # print(f"target_coord_diffs_r = {target_coord_diffs_r}, target_coord_diffs_l = {target_coord_diffs_l}")
     
     if key == ord('f'):                         # find using yolo and iteratiions
+        start_time = time.time()  # Record the starting time
+        timeout_limit = 5.0      # Set timeout in seconds
+        timed_out = False
+        
         while True:
+            if time.time() - start_time > timeout_limit:
+                print(f"Timeout reached: Could not center the target within {timeout_limit} seconds.")
+                timed_out = True
+                break
+
             actual_position = grasper.get_real_joint_angles()
             for i in range(len(grasper.joint_indices)):
                 joint_name = grasper.joint_names[i]
@@ -198,13 +207,14 @@ while True:
                 y_dif = (target_coord_diffs_r[1] + target_coord_diffs_l[1]) / 2
                 # print(f"x_dif = {x_dif}, y_dif = {y_dif}")
 
-                if abs(x_dif) < 3 and abs(y_dif) < 3:
+                if abs(x_dif) < 2 and abs(y_dif) < 2:
                     print(f"Target is close to center")
                     grasper.move_head(head_z, head_y)
                     break
                 else:
-                    grasper.move_head(head_z + x_dif * 0.2, head_y + y_dif * 0.3)
+                    grasper.move_head(head_z + x_dif * 0.7, head_y + y_dif * 0.7)
 
+        # grasper.move_head(head_z, head_y + 1.0)
         grasper.enable_torque_head()
         head_torque_enabled = True
     
@@ -227,6 +237,8 @@ while True:
         p.resetBasePositionAndOrientation(box_id, [x, y, z], [0, 0, 0, 1])
 
         print(f"Target position: X = {x}, Y = {y}, Z = {z}")
+
+        print(f"{y:.3f} {x:.3f} {z:.3f}")
 
 
 # Release cameras and close windows

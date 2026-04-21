@@ -18,7 +18,7 @@ class StereoVision:
         self.P1 = data['P1']
         
         # 2. Setup SGBM parameters
-        self.num_disp = 16 * 6
+        self.num_disp = 16 * 12
         self.block_size = 5
         self.l_matcher = cv2.StereoSGBM_create(
             minDisparity=0,
@@ -185,11 +185,12 @@ class StereoVision:
         
         if torso_p is not None:
             if object_name == "tomato":
-                extra_depth = -0.03        # 2.5 cm
+                extra_depth = 0.01        # 2.5 cm
                 extra_down = 0.0           # 2 cm
 
                 cv_p_modified = cv_p.copy()
                 cv_p_modified[2] += extra_depth
+                # cv_p_modified[2] *= 0.9
 
                 torso_p_modified = self.transformer.transform_cv_point_to_torso(
                     cv_p_modified, head_z, head_y
@@ -211,6 +212,8 @@ class StereoVision:
             print(f"    X (Forward): {torso_p[0]:.3f} m")
             print(f"    Y (Left):    {torso_p[1]:.3f} m")
             print(f"    Z (Up):      {torso_p[2]:.3f} m")
+
+            print(f"{torso_p[1]:.3f} {torso_p[0]:.3f} {torso_p[2]:.3f}")
             
             return torso_p
         else:

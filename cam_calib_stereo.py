@@ -61,7 +61,8 @@ image_size = gray_left.shape[::-1]  # (width, height)
 R = np.zeros((3,3))
 T = np.zeros((3,1))
 
-flags = cv2.fisheye.CALIB_FIX_INTRINSIC  # fix intrinsics, only compute extrinsics
+# flags = cv2.fisheye.CALIB_FIX_INTRINSIC  # fix intrinsics, only compute extrinsics
+flags = cv2.fisheye.CALIB_USE_INTRINSIC_GUESS + cv2.fisheye.CALIB_CHECK_COND
 
 objpoints = [op.reshape(-1,1,3).astype(np.float64) for op in objpoints]
 imgpoints_left = [pts.reshape(-1,1,2).astype(np.float64) for pts in imgpoints_left]
@@ -103,15 +104,15 @@ print(f"Root mean square reprojection error: {ret:.4f} px")
 # 1. Výpočet rektifikácie
 # balance=0.0: zoom in to only see pixels that were in the original image (less stretching)
 # balance=1.0: see everything (what you have now)
-balance = 0.0 
+# balance = 0.0 
 
 R1, R2, P1, P2, Q = cv2.fisheye.stereoRectify(
     K_left, D_left, 
     K_right, D_right, 
     image_size, R, T, 
     flags=0,
-    balance=balance,
-    fov_scale=0.6 # You can lower this (e.g., 0.8) to zoom in more
+    balance=0.0,
+    fov_scale=0.2 # You can lower this for zoom and better accuracy
 )
 
 print(f'Q: {Q}')
