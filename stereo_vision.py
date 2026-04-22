@@ -163,7 +163,7 @@ class StereoVision:
         
         return None, None
     
-    def get_object_3d_position(self, frame_l, frame_r, raw_u, raw_v, head_z, head_y, object_name=""):
+    def get_object_3d_position(self, frame_l, frame_r, raw_u, raw_v, head_z, head_y, pivot_correction_mode="", object_name=""):
         """
         Calculates the 3D position of an object in sim space.
         
@@ -180,17 +180,39 @@ class StereoVision:
         torso_p, cv_p = self.get_3d_from_raw_pixel(raw_u, raw_v, head_z, head_y)
 
         # 3. Output logic
-        print("-" * 30)
-        print(f"AI DETECTION at Raw Coordinates: [{raw_u}, {raw_v}]")
+        # print("-" * 30)
+        # print(f"AI DETECTION at Raw Coordinates: [{raw_u}, {raw_v}]")
         
         if torso_p is not None:
+            dist = np.sqrt(np.sum(cv_p**2))
+
+            print(f"  Direct Distance: {dist:.3f} m")
+
+            if pivot_correction_mode != "":
+                if dist <= 0.720:
+                    torso_p_modified, shift = self.apply_absolute_shift_correction(torso_p, raw_dist_cam=dist, mode=pivot_correction_mode)
+                    print(f"Modified torso point using shift {shift} (mode - {pivot_correction_mode}):")
+                else:
+                    torso_p_modified = self.apply_pivot_correction_2d(torso_p, scale=0.8)
+                    print(f"Modified torso point using scale {0.8} (dist > 720):")
+                print(f"{torso_p_modified[1]:.3f} {torso_p_modified[0]:.3f} {torso_p_modified[2]:.3f} {dist:.3f}")
+
+                # for scale in range(70, 100):
+                #     scale /= 100
+                #     torso_p_modified = self.apply_pivot_correction_2d(torso_p, scale=scale)
+                #     print(f"Modified with scale {scale}")
+                #     print(f"{torso_p_modified[1]:.3f} {torso_p_modified[0]:.3f} {torso_p_modified[2]:.3f}")
+            else:
+                print(f"{torso_p[1]:.3f} {torso_p[0]:.3f} {torso_p[2]:.3f} {dist:.3f}")
+
+
             if object_name == "tomato":
                 extra_depth = 0.01        # 2.5 cm
                 extra_down = 0.0           # 2 cm
 
                 cv_p_modified = cv_p.copy()
-                cv_p_modified[2] += extra_depth
-                # cv_p_modified[2] *= 0.9
+                # cv_p_modified[2] += extra_depth
+                cv_p_modified *= 0.95
 
                 torso_p_modified = self.transformer.transform_cv_point_to_torso(
                     cv_p_modified, head_z, head_y
@@ -201,21 +223,72 @@ class StereoVision:
                 torso_p = torso_p_modified
                 cv_p = cv_p_modified
 
-            dist = np.sqrt(np.sum(cv_p**2))
 
-            print("  [ CAMERA FRAME (Left Eye) ]")
-            print(f"  Z (Depth): {cv_p[2]:.3f} m")
-            print(f"  Direct Distance: {dist:.3f} m")
-            print(f"  3D Coordinates: X={cv_p[0]:.2f}, Y={cv_p[1]:.2f}")
+            # print("  [ CAMERA FRAME (Left Eye) ]")
+            # print(f"  Z (Depth): {cv_p[2]:.3f} m")
+            # print(f"  Direct Distance: {dist:.3f} m")
+            # print(f"  3D Coordinates: X={cv_p[0]:.2f}, Y={cv_p[1]:.2f}")
 
-            print("  [ ROBOT TORSO FRAME ]")
-            print(f"    X (Forward): {torso_p[0]:.3f} m")
-            print(f"    Y (Left):    {torso_p[1]:.3f} m")
-            print(f"    Z (Up):      {torso_p[2]:.3f} m")
+            # print("  [ ROBOT TORSO FRAME ]")
+            # print(f"    X (Forward): {torso_p[0]:.3f} m")
+            # print(f"    Y (Left):    {torso_p[1]:.3f} m")
+            # print(f"    Z (Up):      {torso_p[2]:.3f} m")
 
-            print(f"{torso_p[1]:.3f} {torso_p[0]:.3f} {torso_p[2]:.3f}")
+            # print(f"{torso_p[1]:.3f} {torso_p[0]:.3f} {torso_p[2]:.3f}")
             
             return torso_p
         else:
             print("  Status: INVALID 3D DATA at detected location.")
             return None
+        
+    def apply_absolute_shift_correction(self, p_torso, raw_dist_cam, mode='unfocused', pivot_x=0.10, pivot_y=-0.20):
+        """
+        Final 2D Pivot Correction using absolute shift magnitude.
+        """
+        p_corrected = np.array(p_torso, dtype=np.float64)
+        
+        # 1. Get shift based on distance from camera
+        if mode == 'unfocused':
+            polyfit_coeffs = [0.320849, -0.163687, 0.032437]            # calculated from few "ideal" scale coeffs measured iteratively using polyfit
+        elif mode == 'focused':
+            polyfit_coeffs = [0.358593, -0.151734, 0.021713]            # same
+        shift_meters = (polyfit_coeffs[0] * raw_dist_cam**2) + (polyfit_coeffs[1] * raw_dist_cam) + polyfit_coeffs[2]
+        
+        # 2. Vector towards the pivot
+        pivot_2d = np.array([pivot_x, pivot_y])
+        measured_2d = p_corrected[:2]
+        direction_vec = pivot_2d - measured_2d
+        
+        dist_to_pivot = np.linalg.norm(direction_vec)
+        
+        if dist_to_pivot > 0.001:
+            # 3. Pull the point back towards pivot by the exact error amount
+            unit_direction = direction_vec / dist_to_pivot
+            p_corrected[:2] = measured_2d + (unit_direction * shift_meters)
+            
+        return p_corrected, shift_meters
+    
+    def apply_pivot_correction_2d(self, p_torso, scale=0.8, pivot_x=0.10, pivot_y=-0.20):
+        """
+        Applies a linear correction ONLY to X and Y coordinates relative to a virtual pivot.
+        The 'self' argument is required because this is a class method.
+        """
+        # Create a copy of the original point to preserve the original Z value
+        p_corrected = np.array(p_torso, dtype=np.float64)
+        
+        # Define the 2D pivot point in the XY plane
+        pivot_2d = np.array([pivot_x, pivot_y])
+        
+        # Extract only the X and Y coordinates from the measured point
+        measured_2d = p_corrected[:2]
+        
+        # Calculate the error vector in 2D space
+        error_vector_2d = measured_2d - pivot_2d
+        
+        # Scale the X and Y coordinates relative to the pivot
+        corrected_2d = pivot_2d + (error_vector_2d * scale)
+        
+        # Update the X and Y values in the final array, keeping the original Z
+        p_corrected[:2] = corrected_2d
+        
+        return p_corrected

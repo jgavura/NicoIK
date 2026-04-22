@@ -22,10 +22,10 @@ def generate_grid_and_plot():
     # 2. Save to text file (space-separated)
     try:
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-            f.write(f"Vision experiment - center and stereovision - grid full\n")
-            f.write(f"target_x target_y target_z result_x result_y result_z\n")
+            f.write(f"# Vision experiment - focus and kinematic chain - grid full\n")
+            f.write(f"# target_x target_y target_z focus result_x result_y result_z distance\n")
             for x, y in points:
-                f.write(f"{x} {y} {0.05}\n")
+                f.write(f"{x} {y} {0.05} \n")
         print(f"Successfully saved {len(points)} grid points to {OUTPUT_FILE}")
     except IOError as e:
         print(f"Error writing to file: {e}")

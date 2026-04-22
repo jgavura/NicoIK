@@ -1200,13 +1200,13 @@ class Grasper:
         self.robot.setAngle("head_z", target_z, self.speed_control(head_z, target_z, 1))
         self.robot.setAngle("head_y", target_y, self.speed_control(head_y, target_y, 1))
     
-    def get_target_position(self, target_z=0.05):
+    def get_target_position(self, target_z=0.05, extra_y_tilt=-1.0):
         head_z = self.robot.getAngle("head_z")
         head_y = self.robot.getAngle("head_y")
         sight_link_pos = p.getLinkState(self.robot_id, self.eyesight_link_index)[0]
 
         z_diff = sight_link_pos[2] - target_z
-        plain_diff = z_diff * tan(deg2rad(90 + head_y))
+        plain_diff = z_diff * tan(deg2rad(90 + head_y + extra_y_tilt))
 
         x_diff = plain_diff * cos(deg2rad(head_z))
         y_diff = plain_diff * sin(deg2rad(head_z))

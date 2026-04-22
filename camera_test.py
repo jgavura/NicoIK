@@ -186,6 +186,9 @@ while True:
             if time.time() - start_time > timeout_limit:
                 print(f"Timeout reached: Could not center the target within {timeout_limit} seconds.")
                 timed_out = True
+                head_z = grasper.robot.getAngle("head_z")
+                head_y = grasper.robot.getAngle("head_y")
+                grasper.move_head(head_z, head_y + 1.0)
                 break
 
             actual_position = grasper.get_real_joint_angles()
@@ -229,14 +232,62 @@ while True:
         print(f'head_z: {head_z}')
         print(f'head_y: {head_y}')
         
-        torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "")
         debug_show_detection(frame_l, cx_l, cy_l)
+
+        torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "", "")
+
+        # print("Modified torso point:")
+        torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "", "")
+    
+    if key == ord('m'):             # print coordinates of an object found with yolo
+        if not target_coord_diffs_l:
+            print(f'Yolo not activated or object not found')
+            continue
+
+        print(f'target_coord_diffs_l: {target_coord_diffs_l}')
+        print(f'cx_l: {cx_l}')
+        print(f'cy_l: {cy_l}')
+        print(f'head_z: {head_z}')
+        print(f'head_y: {head_y}')
+        
+        debug_show_detection(frame_l, cx_l, cy_l)
+
+        torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "", "")
+
+        # print("Modified torso point:")
+        torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "focused", "")
+    
+    if key == ord('n'):             # print coordinates of an object found with yolo
+        if not target_coord_diffs_l:
+            print(f'Yolo not activated or object not found')
+            continue
+
+        print(f'target_coord_diffs_l: {target_coord_diffs_l}')
+        print(f'cx_l: {cx_l}')
+        print(f'cy_l: {cy_l}')
+        print(f'head_z: {head_z}')
+        print(f'head_y: {head_y}')
+        
+        debug_show_detection(frame_l, cx_l, cy_l)
+
+        torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "", "")
+
+        # print("Modified torso point:")
+        torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused", "")
     
     if key == ord('k'):             # print coordinates of a place nico is looking at using kinematic chain
-        x, y, z = grasper.get_target_position()
+        x, y, z = grasper.get_target_position(extra_y_tilt=0.0)
         p.resetBasePositionAndOrientation(box_id, [x, y, z], [0, 0, 0, 1])
 
         print(f"Target position: X = {x}, Y = {y}, Z = {z}")
+
+        print(f"{y:.3f} {x:.3f} {z:.3f}")
+
+        # modified
+        x, y, z = grasper.get_target_position(extra_y_tilt=-3.0)
+        p.resetBasePositionAndOrientation(box_id, [x, y, z], [0, 0, 0, 1])
+
+        print(f"Target position modified: X = {x}, Y = {y}, Z = {z}")
 
         print(f"{y:.3f} {x:.3f} {z:.3f}")
 

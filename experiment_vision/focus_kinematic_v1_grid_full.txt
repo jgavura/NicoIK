@@ -1,5 +1,5 @@
-Vision experiment - focus and kinematic chain - grid full
-target_x target_y target_z focus result_x result_y result_z
+# Vision experiment - focus and kinematic chain - grid full
+# target_x target_y target_z focus result_x result_y result_z
 -0.4 0.2 0.05 True -0.424 0.226 0.050
 -0.4 0.3 0.05 True -0.434 0.343 0.050
 -0.4 0.4 0.05 True -0.430 0.446 0.050

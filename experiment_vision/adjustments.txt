@@ -1,0 +1,39 @@
+Stereovision adjustments:
+depth coeficient:
+- dist 0.316 -> coef 0.94
+- dist 0.330 -> coef 0.95
+- dist 0.342 -> coef 0.92 - 0.93
+- dist 0.352 -> coef 0.98
+- dist 0.369 -> coef 0.94
+- dist 0.380 -> coef 0.95
+- dist 0.390 -> coef 0.93
+- dist 0.396 -> coef 0.89
+- dist 0.429 -> coef 0.96
+- dist 0.445 -> coef 0.93
+- dist 0.464 -> coef 0.87 - 0.93
+- dist 0.483 -> coef 0.94
+- dist 0.504 -> coef 0.91
+- dist 0.516 -> coef 0.94
+- dist 0.536 -> coef 0.91 - 0.92
+- dist 0.559 -> coef 0.92 - 0.93
+- dist 0.577 -> coef 0.85
+- dist 0.620 -> coef 0.92
+- dist 0.654 -> coef 0.94
+- dist 0.664 -> coef 0.86
+- dist 0.681 -> coef 0.92
+- dist 0.686 -> coef 0.91
+- dist 0.796 -> coef 0.79
+- dist 0.802 -> coef 0.78
+- dist 0.816 -> coef 0.77
+
+Quardatic formula calculated using polyfit:
+coef = (-0.8427 * dist^2) + (0.6539 * dist) + 0.8126
+
+- to nefunguje dobre, pivot je dalej od bodov vpravo ako od bodov vlavo, takze taha viac body vpravo
+- nebudeme menit scale ale priamo vzdialenost o kolko sa posunie smerom k pivotovi
+- pridal som do nameranych hodnot distance (od kamery) a z toho ku kazdej distance vyratal idealny shift smerom k pivotovi, je to v novych textakoch
+- naratal som lavy spodny bod, ten je outlier, pre ten je scale 0.8
+
+
+Kinematic adjustments:
+- konstantny extra tilt -3.0
