@@ -1,0 +1,30 @@
+# Grasping experiment - baseline - z5 - grid
+# Vision - unfocused stereovision v2
+# 2d chyba je tu zrejma, vacsinou uchopuje iba malickom co nestaci
+# ak sa uchop podari tak lebo je divna orientacia ruky, napriklad pri natiahnutej ruke je pitch viac k zemi a to pomaha ocividne
+# alebo hned pred nim ma tu ruku tak ze je roll nakloneny tak ze je malicek viac k zemi a to tiez pomohlo
+# target_x target_y target_z attempt1 attempt2 attempt3
+-0.4 0.2 0.05 0 0 0
+-0.4 0.3 0.05 0 0 0
+# -0.4 0.4 0.05 
+-0.3 0.2 0.05 0 0 0
+-0.3 0.3 0.05 0 0 0
+-0.3 0.4 0.05 0 0 0
+-0.2 0.2 0.05 0 0 0
+-0.2 0.3 0.05 0 0 0
+-0.2 0.4 0.05 0 0 0
+-0.1 0.2 0.05 0 0 1
+-0.1 0.3 0.05 0 0 0
+-0.1 0.4 0.05 0 0 0
+-0.0 0.2 0.05 1 1 1
+-0.0 0.3 0.05 0 0 0
+-0.0 0.4 0.05 0 0 0
+0.1 0.2 0.05 0 1 0
+0.1 0.3 0.05 0 0 0
+0.1 0.4 0.05 0 0 0
+0.2 0.2 0.05 0 0 0
+0.2 0.3 0.05 0 0 0
+0.2 0.4 0.05 1 1 1
+0.3 0.2 0.05 0 0 0
+0.3 0.3 0.05 1 1 1
+# 0.3 0.4 0.05 

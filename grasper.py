@@ -611,7 +611,7 @@ class Grasper:
         ori_yaw = m * y + b
         return ori_yaw
     
-    def move_arm(self, pos, ori, side, autozpos=False, autoori=False):
+    def move_arm(self, pos, ori, side, autozpos=False, autoori=False, shift_for_grasping=0.0):
         """
         Moves the robot arm(s) to the specified target angles (degrees) based on the side.
         If side is 'both', calculates IK for left with negated y.
@@ -645,6 +645,8 @@ class Grasper:
                 ori[2] = self.righthand_rbf_yaw(pos[0], pos[1])
 
         ik_solution_nico_deg = self.rad2nicodeg(self.joint_names, self.calculate_ik(side, pos, ori))
+
+        ik_solution_nico_deg['r_shoulder_z'] = ik_solution_nico_deg['r_shoulder_z'] - shift_for_grasping
 
         if not self.is_robot_connected:
             print("Robot hardware not connected. Cannot move arm.")
@@ -1069,7 +1071,7 @@ class Grasper:
                 print(f"  Skipping {joint_name} due to invalid angle.")
         time.sleep(self.delay/2)  # Delay after the move completes
 
-    def pick_object(self, pos, ori, side, autozpos=False, autoori=False):
+    def pick_object(self, pos, ori, side, autozpos=False, autoori=False, shift_for_grasping=0.0):
         if autozpos:
             if side.lower() == 'left':
                 pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
@@ -1077,7 +1079,7 @@ class Grasper:
                 pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
         self.move_arm([pos[0],pos[1],pos[2]+0.12], ori, side, autoori=autoori)
         time.sleep(1)
-        self.move_arm(pos, ori, side, autoori=autoori)
+        self.move_arm(pos, ori, side, autoori=autoori, shift_for_grasping=shift_for_grasping)
         time.sleep(1)
         self.close_gripper(side)
         self.move_arm([pos[0],pos[1],pos[2]+0.12], ori, side, autoori=autoori) # Close right gripper

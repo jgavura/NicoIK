@@ -2,9 +2,9 @@ import random
 import matplotlib.pyplot as plt
 
 # --- CONFIGURATION ---
-X_START, X_END, X_STEP = -0.4, 0.4, 0.1
-Y_START, Y_END, Y_STEP = 0.2, 0.5, 0.1
-OUTPUT_FILE = "experiment_vision/coordinates.txt"
+X_START, X_END, X_STEP = -0.4, 0.2, 0.1
+Y_START, Y_END, Y_STEP = 0.2, 0.4, 0.1
+OUTPUT_FILE = "experiment_grasping/data/z5/baseline_z5_grid.txt"
 
 def generate_grid_and_plot():
     points = []
@@ -22,8 +22,8 @@ def generate_grid_and_plot():
     # 2. Save to text file (space-separated)
     try:
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-            f.write(f"# Vision experiment - focus and kinematic chain - grid full\n")
-            f.write(f"# target_x target_y target_z focus result_x result_y result_z distance\n")
+            f.write(f"# Grasping experiment - baseline - z5 - grid\n")
+            f.write(f"# target_x target_y target_z attempt1 attempt2 attempt3\n")
             for x, y in points:
                 f.write(f"{x} {y} {0.05} \n")
         print(f"Successfully saved {len(points)} grid points to {OUTPUT_FILE}")

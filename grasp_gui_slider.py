@@ -303,6 +303,18 @@ def main():
     use_second_target = True # Flag to switch between target boxes/orientations
     
     try:
+        target_i = 0
+        targets_x = [0.133, 0.208, 0.272, 0.338, 0.388, 0.420, 0.458, 0.483, 0.496, 0.480, 0.464, 0.433, 0.392, 0.344, 0.291, 0.227, 0.164, 0.152, 0.139, 0.123, 0.104, 0.111, 0.085, 0.069, 0.085, 0.158, 0.177, 0.193, 0.202, 0.218, 0.234, 0.313, 0.300, 0.278, 0.268, 0.240, 0.227, 0.313, 0.344, 0.366, 0.376, 0.385, 0.407, 0.426, 0.426, 0.272, 0.369]
+        targets_y = [-0.395, -0.437, -0.447, -0.411, -0.358, -0.289, -0.216, -0.142, -0.074, -0.005, 0.068, 0.142, 0.200, 0.247, 0.279, 0.305, 0.321, 0.258, 0.184, 0.100, 0.005, -0.084, -0.163, -0.253, -0.326, -0.289, -0.189, -0.089, 0.016, 0.116, 0.205, 0.158, 0.053, -0.053, -0.153, -0.242, -0.342, -0.316, -0.216, -0.121, -0.026, 0.079, -0.179, -0.089, 0.005, -0.384, -0.274]
+        for i in range(len(targets_x)):
+            target_box_id = p.createMultiBody(
+                baseMass=0, # Set mass to 0 if it's only visual
+                baseCollisionShapeIndex=-1, # No collision shape
+                baseVisualShapeIndex=p.createVisualShape(p.GEOM_BOX, halfExtents=[0.01]*3, rgbaColor=[1, 0, 1, 0.8]), # Visual shape only
+                basePosition=[targets_x[i], targets_y[i], p.readUserDebugParameter(z_slider)]
+            )
+
+
         while True:
             # Check keyboard events first to potentially switch targets
             keys = p.getKeyboardEvents()
@@ -350,18 +362,18 @@ def main():
                     basePosition=[p.readUserDebugParameter(x_slider), p.readUserDebugParameter(y_slider), p.readUserDebugParameter(z_slider)]
                 )
             
-            if ord('p') in keys and keys[ord('p')] & p.KEY_WAS_TRIGGERED:
-                x = [0.133, 0.208, 0.272, 0.338, 0.388, 0.420, 0.458, 0.483, 0.496, 0.480, 0.464, 0.433, 0.392, 0.344, 0.291, 0.227, 0.164, 0.152, 0.139, 0.123, 0.104, 0.111, 0.085, 0.069, 0.085, 0.158, 0.177, 0.193, 0.202, 0.218, 0.234, 0.313, 0.300, 0.278, 0.268, 0.240, 0.227, 0.313, 0.344, 0.366, 0.376, 0.385, 0.407, 0.426, 0.426, 0.272, 0.369]
-                y = [-0.395, -0.437, -0.447, -0.411, -0.358, -0.289, -0.216, -0.142, -0.074, -0.005, 0.068, 0.142, 0.200, 0.247, 0.279, 0.305, 0.321, 0.258, 0.184, 0.100, 0.005, -0.084, -0.163, -0.253, -0.326, -0.289, -0.189, -0.089, 0.016, 0.116, 0.205, 0.158, 0.053, -0.053, -0.153, -0.242, -0.342, -0.316, -0.216, -0.121, -0.026, 0.079, -0.179, -0.089, 0.005, -0.384, -0.274]
-                for i in range(len(x)):
-                    target_box_id = p.createMultiBody(
-                        baseMass=0, # Set mass to 0 if it's only visual
-                        baseCollisionShapeIndex=-1, # No collision shape
-                        baseVisualShapeIndex=p.createVisualShape(p.GEOM_BOX, halfExtents=[0.01]*3, rgbaColor=[1, 0, 1, 0.8]), # Visual shape only
-                        basePosition=[x[i], y[i], p.readUserDebugParameter(z_slider)]
-                    )
+            if p.B3G_RIGHT_ARROW in keys and keys[p.B3G_RIGHT_ARROW] & p.KEY_WAS_TRIGGERED:
+                target_i = (target_i + 1) % len(targets_x)
+                
+                p.resetUserDebugParameter(x_slider, targets_x[target_i])
+                p.resetUserDebugParameter(y_slider, targets_y[target_i])
             
-
+            if p.B3G_LEFT_ARROW in keys and keys[p.B3G_LEFT_ARROW] & p.KEY_WAS_TRIGGERED:
+                target_i = (target_i - 1) % len(targets_x)
+                
+                p.resetUserDebugParameter(x_slider, targets_x[target_i])
+                p.resetUserDebugParameter(y_slider, targets_y[target_i])
+            
             
 
 
@@ -479,8 +491,10 @@ def main():
 
             # Format orientation difference text
             orientation_diff_text = (
-                f"  Quat Diff Angle: {angle:.3f} rad\n"
+                f"  Quat Diff Angle: {angle:.3f} rad"
             )
+
+            print(orientation_diff_text, end='\r', flush=True)
             
             # Add new orientation debug text
             if angle> 0.1:

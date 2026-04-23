@@ -105,35 +105,35 @@ while True:
         target_coord_diffs_l = camera_left.annotate(model, "Tomato")
 
         if target_coord_diffs_r and target_coord_diffs_l:
-                head_z = grasper.robot.getAngle("head_z")
-                head_y = grasper.robot.getAngle("head_y")
+            head_z = grasper.robot.getAngle("head_z")
+            head_y = grasper.robot.getAngle("head_y")
 
-                # print(f"head_z = {head_z}, head_y = {head_y}")
+            # print(f"head_z = {head_z}, head_y = {head_y}")
 
-                x_dif = (target_coord_diffs_r[0] + target_coord_diffs_l[0]) / 2
-                y_dif = (target_coord_diffs_r[1] + target_coord_diffs_l[1]) / 2
-                # print(f"x_dif = {x_dif}, y_dif = {y_dif}")
+            x_dif = (target_coord_diffs_r[0] + target_coord_diffs_l[0]) / 2
+            y_dif = (target_coord_diffs_r[1] + target_coord_diffs_l[1]) / 2
+            # print(f"x_dif = {x_dif}, y_dif = {y_dif}")
 
-                if abs(x_dif) < 5 and abs(y_dif) < 5:
-                    print(f"Target is close to center")
-                    grasper.move_head(head_z, head_y)
-                    time.sleep(1)
-                    target_pos = grasper.get_target_position()
-                    p.resetBasePositionAndOrientation(box_id3, target_pos, [0, 0, 0, 1])
+            if abs(x_dif) < 5 and abs(y_dif) < 5:
+                print(f"Target is close to center")
+                grasper.move_head(head_z, head_y)
+                time.sleep(1)
+                target_pos = grasper.get_target_position()
+                p.resetBasePositionAndOrientation(box_id3, target_pos, [0, 0, 0, 1])
 
-                    if 0.25 <= target_pos[0] <= 0.57 and -0.26 <= target_pos[1] <= 0.26:
-                        print(f"Target position {target_pos} is inside of tablet")
-                        target_pos_pred = grasper.get_xy2xy_prediction(target_pos[0], target_pos[1])
-                        print(f"Target position prediction: {target_pos_pred}")
-                        target_pos = [target_pos_pred[0], target_pos_pred[1], 0.05]
-                    else:
-                        print(f"Target position {target_pos} is outside of tablet")
-
-                    grasper.pick_object(target_pos, [0, 0, 0], 'right', autozpos=True, autoori=True)
-                    touch_app.wait_for_drop()
-                    action = 'placing_object'
+                if 0.25 <= target_pos[0] <= 0.57 and -0.26 <= target_pos[1] <= 0.26:
+                    print(f"Target position {target_pos} is inside of tablet")
+                    target_pos_pred = grasper.get_xy2xy_prediction(target_pos[0], target_pos[1])
+                    print(f"Target position prediction: {target_pos_pred}")
+                    target_pos = [target_pos_pred[0], target_pos_pred[1], 0.05]
                 else:
-                    grasper.move_head(head_z + x_dif * 0.2, head_y + y_dif * 0.3)
+                    print(f"Target position {target_pos} is outside of tablet")
+
+                grasper.pick_object(target_pos, [0, 0, 0], 'right', autozpos=True, autoori=True)
+                touch_app.wait_for_drop()
+                action = 'placing_object'
+            else:
+                grasper.move_head(head_z + x_dif * 0.2, head_y + y_dif * 0.3)
 
         if cv2.waitKey(1) & 0xFF == 27:  # ESC
             break

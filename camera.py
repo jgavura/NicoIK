@@ -36,7 +36,7 @@ class Camera:
         return frame
 
 
-    def annotate(self, model, target_class='', filter_hands=False):
+    def annotate(self, model, target_class='', only_one_target=False, filter_hands=False):
         for _ in range(5):
             self.cap.read()                                   # skip one frame for clearing the buffer
         ret, frame = self.cap.read()
@@ -45,6 +45,10 @@ class Camera:
             exit()
 
         results = model(frame)
+
+        if only_one_target:
+            filtered_boxes = self.filter_targets(model, results[0], target_class)
+            results[0].boxes = Boxes(filtered_boxes, results[0].orig_shape)
 
         if filter_hands:
             filtered_boxes = self.filter_hands(model, results[0])
@@ -86,12 +90,35 @@ class Camera:
             if model.names[cls] == target_class:           # Replace with any target class name
                 cy_lower = cy + h // 4                      # bit lower so that he looks at the point of contact of tablet with the object
                 target_coord_difs = (cam_cx - cx, cam_cy - cy_lower)
-                target_cx = cx
-                target_cy = cy
 
         cv2.imshow(f"Robot {self.side} eye", annotated)
 
-        return target_coord_difs, target_cx, target_cy, frame
+        return target_coord_difs, results[0], frame
+    
+
+    def filter_targets(self, model, result, target_class_name):
+        if target_class_name not in model.names.values():
+            return result.boxes
+        
+        target_id = next((k for k, v in model.names.items() if v == target_class_name), None)
+        filtered_result, targets = [], []
+
+        for box in result.boxes.data:
+            box = box.clone()
+
+            if box[5] == target_id:
+                targets.append(box)
+            else:
+                filtered_result.append(box)
+        
+        if len(targets) > 0:
+            targets = sorted(targets, key=lambda x: x[4], reverse=True)  # sort by confidence
+            filtered_result.append(targets[0])
+        
+        if len(filtered_result) == 0:
+            return torch.empty((0, 6), device=result.boxes.data.device)
+        
+        return torch.stack(filtered_result)
 
 
     def filter_hands(self, model, result):
@@ -111,8 +138,8 @@ class Camera:
                 right_hands.append(box)
             elif box[5] == left_id:
                 left_hands.append(box)
-            # else:
-            #     filtered_result.append(box)
+            else:
+                filtered_result.append(box)
         
         right_hands = sorted(right_hands, key=lambda x: x[4], reverse=True)  # sort by confidence
         left_hands = sorted(left_hands, key=lambda x: x[4], reverse=True)    # sort by confidence
@@ -170,6 +197,7 @@ class Camera:
         
         if len(filtered_result) == 0:
             return torch.empty((0, 6), device=result.boxes.data.device)
+        
         return torch.stack(filtered_result)
     
     def get_pos_relation_of_boxes(self, box1, box2):
