@@ -43,10 +43,10 @@ class Grasper:
     # INIT_POS = {  # right hand up, left down
     #     'head_z': 0.0, 'head_y': -30.0, 'r_shoulder_z': -10, 'r_shoulder_y': 87,
     #     'r_arm_x': 88, 'r_elbow_y': 87, 'r_wrist_z': 2, 'r_wrist_x': -29,
-    #     'r_thumb_z': -1, 'r_thumb_x': 44, 'r_indexfinger_x': -90, 'r_middlefingers_x': 100.0,
+    #     'r_thumb_z': -180, 'r_thumb_x': -180, 'r_indexfinger_x': -0, 'r_middlefingers_x': 0,
     #     'l_shoulder_z': -30.0, 'l_shoulder_y': 13.0, 'l_arm_x': 0.0, 'l_elbow_y': 104.0,
-    #     'l_wrist_z': -184.0, 'l_wrist_x': -55.0, 'l_thumb_z': -62.0, 'l_thumb_x': -180.0,
-    #     'l_indexfinger_x': -170.0, 'l_middlefingers_x': -180.0
+    #     'l_wrist_z': 2.0, 'l_wrist_x': -55.0, 'l_thumb_z': -180.0, 'l_thumb_x': -180.0,
+    #     'l_indexfinger_x': 0.0, 'l_middlefingers_x': 0.0
     # }
     # INIT_POS = {  # left hand up, right down
     #     'head_z': 0.0, 'head_y': -30.0, 'r_shoulder_z': -30, 'r_shoulder_y': 13,

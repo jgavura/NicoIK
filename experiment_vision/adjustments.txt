@@ -1,4 +1,4 @@
-Stereovision adjustments:
+Stereovision adjustments V2:
 depth coeficient:
 - dist 0.316 -> coef 0.94
 - dist 0.330 -> coef 0.95
@@ -35,5 +35,5 @@ coef = (-0.8427 * dist^2) + (0.6539 * dist) + 0.8126
 - naratal som lavy spodny bod, ten je outlier, pre ten je scale 0.8
 
 
-Kinematic adjustments:
+Kinematic adjustments V2:
 - konstantny extra tilt -3.0

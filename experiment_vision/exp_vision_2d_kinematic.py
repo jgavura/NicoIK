@@ -50,24 +50,26 @@ def create_precision_plot(file_path, show_z_values=False):
                 tx = float(parts[0]) * 100
                 ty = float(parts[1]) * -100
 
-                hx = float(parts[4]) * 100
-                hy = float(parts[5]) * -100
-                hz = float(parts[6]) * 100
+                # Column 4 (focus) determines color ONLY
+                is_green = parts[3].strip() == "True" or parts[3].strip() == "_"
 
-                # Calculate 2D Euclidean deviation
-                deviation_2d = np.sqrt((hx - tx) ** 2 + (hy - ty) ** 2)
-
-                sv_working = parts[8] == 'True'
-
-                if not sv_working:
-                    targets_red_x.append(tx)
-                    targets_red_y.append(ty)
-                else:
+                if is_green:
                     targets_green_x.append(tx)
                     targets_green_y.append(ty)
+                else:
+                    targets_red_x.append(tx)
+                    targets_red_y.append(ty)
 
+                # Presence of hit data (len > 4) determines if a line is drawn
+                if len(parts) > 4:
+                    hx = float(parts[4]) * 100
+                    hy = float(parts[5]) * -100
+                    hz = float(parts[6]) * 100
                     hits_data.append((tx, ty, hx, hy, hz))
-                    deviations_2d.append(deviation_2d)
+
+                    # Calculate 2D Euclidean deviation
+                    deviations_2d.append(np.sqrt((hx - tx) ** 2 + (hy - ty) ** 2))
+                    # Collect the raw measured Z value
                     measured_z_values.append(hz)
 
     except FileNotFoundError:
@@ -131,7 +133,7 @@ def create_precision_plot(file_path, show_z_values=False):
                     linewidth=1.5)
 
     handles = [p1, p2, p3, p4]
-    labels = ['Target (2D dev > 10 cm)', 'Target (2D dev <= 10 cm)', 'Result', 'Touchscreen Area']
+    labels = ['Target (Focus - Fail)', 'Target (Focus - Success)', 'Result', 'Touchscreen Area']
 
     if show_z_values:
         # Add the custom "Z in square" handle
@@ -141,7 +143,7 @@ def create_precision_plot(file_path, show_z_values=False):
     # 6. Labels and Title
     ax.set_xlabel('X-axis (cm)', fontsize=16)
     ax.set_ylabel('Y-axis (cm)', fontsize=16)
-    ax.set_title('Exp - Vision - Unfocused Stereovision V1 - Grid - Z = 15', fontsize=20, pad=90)
+    ax.set_title('Exp - Vision - Unfocused Stereovision V1 - Grid - Z = 10', fontsize=20, pad=90)
     ax.tick_params(axis='both', labelsize=12)
 
     # Apply the custom handler to the legend
@@ -181,9 +183,9 @@ def create_precision_plot(file_path, show_z_values=False):
 
     plt.subplots_adjust(top=0.75)
     plt.tight_layout(rect=[0, 0, 1, 0.95])
-    # plt.show()
-    plt.savefig('./experiment_vision/plots/z15/ex_vision_unfocused_stereo_v1_z15_grid.png')
+    plt.show()
+    # plt.savefig('./experiment_vision/plots/z10/ex_vision_unfocused_stereo_v1_grid.png')
 
 # Run the function
 if __name__ == "__main__":
-    create_precision_plot('./experiment_vision/data/z15/unfocused_stereovision_v1_z15_grid_full.txt', show_z_values=True)
+    create_precision_plot('./experiment_vision/data/z10/unfocused_stereovision_v1_z10_grid_full.txt', show_z_values=True)

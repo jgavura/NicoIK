@@ -98,8 +98,16 @@ box_id = p.createMultiBody(                                 # left eye
         basePosition=[-0.05, 0, 0.0]
     )
 
+box_id2 = p.createMultiBody(                                # target point where nico is looking at on the tablet, where eyesight ends
+        baseMass=0, # Set mass to 0 if it's only visual
+        baseCollisionShapeIndex=-1, # No collision shape
+        baseVisualShapeIndex=p.createVisualShape(p.GEOM_SPHERE, radius=0.01, rgbaColor=[1, 0.0, 0.0, 0.8]), # Visual shape only
+        basePosition=[0, 0, 0]
+    )
+
+
 # model = YOLO("custom_dataset_models/yolo12n_custom_hands_1+2.pt")
-model = YOLO("custom_dataset_models/yolo12n_objects_1+2_+_hands_1+2.pt")
+model = YOLO("custom_dataset_models/yolo12n_objects_1+2+3_hands_only_1+2.pt")
 model.overrides['verbose'] = False   # True for logging in console
 camera_right = Camera("right")
 camera_left = Camera("left")
@@ -153,6 +161,9 @@ while True:
     # Check if ESC is pressed to exit
     if key == 27:  # ESC key
         break
+
+    target_pos = grasper.get_target_position(extra_y_tilt=0.0)
+    p.resetBasePositionAndOrientation(box_id2, target_pos, [0, 0, 0, 1])
 
     # Save both frames if 's' is pressed
     if key == ord('s'):  # Save frames from both cameras
@@ -318,10 +329,6 @@ while True:
         print(f"{y:.3f} {x:.3f} {z:.3f}")
     
     if key == ord('r'):             # print coordinates of right arm
-        if not target_coord_diffs_l:
-            print(f'Yolo not activated or object not found')
-            continue
-
         cx_l, cy_l = get_centroid(model, result_l, 'RightHand', lower=False)
 
         print(f'target_coord_diffs_l: {target_coord_diffs_l}')
@@ -347,6 +354,7 @@ while True:
         debug_show_detection(frame_l, cx_l, cy_l)
         torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused")
 
+        # grasper.pick_object(torso_point, [0, 0, 0], 'right', autozpos=True, autoori=True, shift_for_grasping=3.0)
         grasper.pick_object(torso_point, [0, 0, 0], 'right', autozpos=True, autoori=True)
     
 
@@ -357,20 +365,20 @@ while True:
 
         target_cx_l, target_cy_l = get_centroid(model, result_l, target_class, lower=False)
 
-        debug_show_detection(frame_l, target_cx_l, target_cy_l)
+        # debug_show_detection(frame_l, target_cx_l, target_cy_l)
         target_torso_point = sv.get_object_3d_position(frame_l, frame_r, target_cx_l, target_cy_l, head_z, head_y, "")
 
         checking_pos = [target_torso_point[0],target_torso_point[1],target_torso_point[2]+0.05]
         grasper.move_arm(checking_pos, [0, 0, 0], 'right', autoori=True)
-        time.sleep(3)
+        # time.sleep(3)
 
-        arm_cx_l, arm_cy_l = get_centroid(model, result_l, 'RightHand', lower=False)
+        # arm_cx_l, arm_cy_l = get_centroid(model, result_l, 'RightHand', lower=False)
 
-        if arm_cx_l:
-            debug_show_detection(frame_l, arm_cx_l, arm_cy_l)
-            arm_torso_point = sv.get_object_3d_position(frame_l, frame_r, arm_cx_l, arm_cy_l, head_z, head_y, "")
-        else:
-            print('Hand not fouond')
+        # if arm_cx_l:
+        #     debug_show_detection(frame_l, arm_cx_l, arm_cy_l)
+        #     arm_torso_point = sv.get_object_3d_position(frame_l, frame_r, arm_cx_l, arm_cy_l, head_z, head_y, "")
+        # else:
+        #     print('Hand not found')
         
 
 
