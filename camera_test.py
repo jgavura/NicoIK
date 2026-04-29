@@ -354,8 +354,13 @@ while True:
         debug_show_detection(frame_l, cx_l, cy_l)
         torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused")
 
+        x, y, z = torso_point
+        print(f'torso point: {x}, {y}')
+        x_pred, y_pred = grasper.get_xy2xy_prediction(x, y)
+        print(f'predicted point: {x_pred}, {y_pred}')
+
         # grasper.pick_object(torso_point, [0, 0, 0], 'right', autozpos=True, autoori=True, shift_for_grasping=3.0)
-        grasper.pick_object(torso_point, [0, 0, 0], 'right', autozpos=True, autoori=True)
+        grasper.pick_object([x_pred, y_pred, z], [0, 0, 0], 'right', autozpos=True, autoori=True)
     
 
     if key == ord('j'):             # grasp with hand correction
@@ -379,6 +384,10 @@ while True:
         #     arm_torso_point = sv.get_object_3d_position(frame_l, frame_r, arm_cx_l, arm_cy_l, head_z, head_y, "")
         # else:
         #     print('Hand not found')
+    
+    if key == ord('e'):                     # show end effector position
+        grasper.update_loc_of_ee_box()
+        grasper.switch_opacitiy_of_ee_box()
         
 
 

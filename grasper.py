@@ -3,11 +3,11 @@ from tensorflow import keras
 import pybullet as p
 import time
 from numpy import random, rad2deg, deg2rad, set_printoptions, array, linalg, round, any, mean, arctan2, sqrt, pi, sin, cos, tan
-from scipy.interpolate import Rbf
 import sys  # Add this import at the top of the file
 from sim_height_calculation import calculate_z
-from tablet_coords_conversion import sim2tab
+from tablet_coords_conversion import sim2tab, sim2tab_old
 import threading
+from rbf_z_yaw import RbfInterpolator
 
 # Attempt to import Motion, but handle failure gracefully if not simulating
 try:
@@ -57,21 +57,21 @@ class Grasper:
     #     'l_indexfinger_x': -90, 'l_middlefingers_x': 100
     # }
 
-    RIGHTHAND_RBF_POINTS = {
-        'x': [0.133, 0.208, 0.272, 0.338, 0.388, 0.420, 0.458, 0.483, 0.496, 0.480, 0.464, 0.433, 0.392, 0.344, 0.291, 0.227, 0.164, 0.152, 0.139, 0.123, 0.104, 0.111, 0.085, 0.069, 0.085, 0.158, 0.177, 0.193, 0.202, 0.218, 0.234, 0.313, 0.300, 0.278, 0.268, 0.240, 0.227, 0.313, 0.344, 0.366, 0.376, 0.385, 0.407, 0.426, 0.426, 0.272, 0.369],
-        'y': [-0.395, -0.437, -0.447, -0.411, -0.358, -0.289, -0.216, -0.142, -0.074, -0.005, 0.068, 0.142, 0.200, 0.247, 0.279, 0.305, 0.321, 0.258, 0.184, 0.100, 0.005, -0.084, -0.163, -0.253, -0.326, -0.289, -0.189, -0.089, 0.016, 0.116, 0.205, 0.158, 0.053, -0.053, -0.153, -0.242, -0.342, -0.316, -0.216, -0.121, -0.026, 0.079, -0.179, -0.089, 0.005, -0.384, -0.274],
-        # 'yaw': [-0.595, -0.728, -0.794, -0.761, -0.694, -0.463, -0.265, -0.132, -0.033, 0.165, 0.331, 0.529, 0.728, 0.893, 1.058, 1.224, 1.455, 1.389, 1.389, 1.389, 1.488, 0.794, 0.298, -0.132, -0.298, -0.298, -0.099, 0.298, 0.959, 1.058, 1.190, 0.992, 0.761, 0.496, 0.066, -0.265, -0.496, -0.496, -0.198, 0.099, 0.298, 0.562, -0.066, 0.198, 0.331, -0.496, -0.331],                     # old
-        'yaw': [-0.595, -0.728, -0.794, -0.761, -0.694, -0.463, -0.265, -0.132, -0.033, 0.165, 0.331, 0.529, 0.728, 0.893, 1.058, 1.224, 1.455, 1.389, 1.389, 1.389, 1.819, 1.257, 0.496, -0.132, -0.298, 0.0, 0.331, 0.661, 1.29, 1.488, 1.29, 1.157, 1.124, 0.827, 0.496, 0.165, -0.298, -0.198, 0.165, 0.331, 0.43, 0.529, -0.066, 0.198, 0.331, -0.496, -0.331],                       # new
-        # 'z': [0.115, 0.123, 0.128, 0.130, 0.132, 0.131, 0.128, 0.129, 0.127, 0.127, 0.126, 0.124, 0.120, 0.114, 0.115, 0.107, 0.091, 0.095, 0.115, 0.105, 0.101, 0.095, 0.092, 0.089, 0.102, 0.106, 0.101, 0.094, 0.095, 0.104, 0.112, 0.116, 0.112, 0.109, 0.108, 0.110, 0.120, 0.118, 0.117, 0.122, 0.123],                                                                                     # old
-        'z': [0.115, 0.123, 0.128, 0.13, 0.132, 0.131, 0.128, 0.129, 0.127, 0.127, 0.126, 0.124, 0.12, 0.114, 0.115, 0.107, 0.091, 0.095, 0.035, 0.038, 0.063, 0.115, 0.105, 0.101, 0.095, 0.092, 0.089, 0.096, 0.102, 0.106, 0.101, 0.098, 0.101, 0.104, 0.112, 0.118, 0.112, 0.109, 0.108, 0.11, 0.12, 0.118, 0.117, 0.122, 0.123]                                                            # new
-    }
+    # RIGHTHAND_RBF_POINTS = {
+    #     'x': [0.133, 0.208, 0.272, 0.338, 0.388, 0.420, 0.458, 0.483, 0.496, 0.480, 0.464, 0.433, 0.392, 0.344, 0.291, 0.227, 0.164, 0.152, 0.139, 0.123, 0.104, 0.111, 0.085, 0.069, 0.085, 0.158, 0.177, 0.193, 0.202, 0.218, 0.234, 0.313, 0.300, 0.278, 0.268, 0.240, 0.227, 0.313, 0.344, 0.366, 0.376, 0.385, 0.407, 0.426, 0.426, 0.272, 0.369],
+    #     'y': [-0.395, -0.437, -0.447, -0.411, -0.358, -0.289, -0.216, -0.142, -0.074, -0.005, 0.068, 0.142, 0.200, 0.247, 0.279, 0.305, 0.321, 0.258, 0.184, 0.100, 0.005, -0.084, -0.163, -0.253, -0.326, -0.289, -0.189, -0.089, 0.016, 0.116, 0.205, 0.158, 0.053, -0.053, -0.153, -0.242, -0.342, -0.316, -0.216, -0.121, -0.026, 0.079, -0.179, -0.089, 0.005, -0.384, -0.274],
+    #     # 'yaw': [-0.595, -0.728, -0.794, -0.761, -0.694, -0.463, -0.265, -0.132, -0.033, 0.165, 0.331, 0.529, 0.728, 0.893, 1.058, 1.224, 1.455, 1.389, 1.389, 1.389, 1.488, 0.794, 0.298, -0.132, -0.298, -0.298, -0.099, 0.298, 0.959, 1.058, 1.190, 0.992, 0.761, 0.496, 0.066, -0.265, -0.496, -0.496, -0.198, 0.099, 0.298, 0.562, -0.066, 0.198, 0.331, -0.496, -0.331],                     # old
+    #     'yaw': [-0.595, -0.728, -0.794, -0.761, -0.694, -0.463, -0.265, -0.132, -0.033, 0.165, 0.331, 0.529, 0.728, 0.893, 1.058, 1.224, 1.455, 1.389, 1.389, 1.389, 1.819, 1.257, 0.496, -0.132, -0.298, 0.0, 0.331, 0.661, 1.29, 1.488, 1.29, 1.157, 1.124, 0.827, 0.496, 0.165, -0.298, -0.198, 0.165, 0.331, 0.43, 0.529, -0.066, 0.198, 0.331, -0.496, -0.331],                       # new
+    #     # 'z': [0.115, 0.123, 0.128, 0.130, 0.132, 0.131, 0.128, 0.129, 0.127, 0.127, 0.126, 0.124, 0.120, 0.114, 0.115, 0.107, 0.091, 0.095, 0.115, 0.105, 0.101, 0.095, 0.092, 0.089, 0.102, 0.106, 0.101, 0.094, 0.095, 0.104, 0.112, 0.116, 0.112, 0.109, 0.108, 0.110, 0.120, 0.118, 0.117, 0.122, 0.123],                                                                                     # old
+    #     'z': [0.115, 0.123, 0.128, 0.13, 0.132, 0.131, 0.128, 0.129, 0.127, 0.127, 0.126, 0.124, 0.12, 0.114, 0.115, 0.107, 0.091, 0.095, 0.035, 0.038, 0.063, 0.115, 0.105, 0.101, 0.095, 0.092, 0.089, 0.096, 0.102, 0.106, 0.101, 0.098, 0.101, 0.104, 0.112, 0.118, 0.112, 0.109, 0.108, 0.11, 0.12, 0.118, 0.117, 0.122, 0.123]                                                            # new
+    # }
 
-    LEFTHAND_RBF_POINTS = {
-        'x': [0.133, 0.208, 0.272, 0.338, 0.388, 0.420, 0.458, 0.483, 0.496, 0.480, 0.464, 0.433, 0.392, 0.344, 0.291, 0.227, 0.164, 0.152, 0.139, 0.123, 0.104, 0.111, 0.085, 0.069, 0.085, 0.158, 0.177, 0.193, 0.202, 0.218, 0.234, 0.313, 0.300, 0.278, 0.268, 0.240, 0.227, 0.313, 0.344, 0.366, 0.376, 0.385, 0.407, 0.426, 0.426, 0.272, 0.369],
-        'y': [0.395, 0.437, 0.447, 0.411, 0.358, 0.289, 0.216, 0.142, 0.074, 0.005, -0.068, -0.142, -0.2, -0.247, -0.279, -0.305, -0.321, -0.258, -0.184, -0.1, -0.005, 0.084, 0.163, 0.253, 0.326, 0.289, 0.189, 0.089, -0.016, -0.116, -0.205, -0.158, -0.053, 0.053, 0.153, 0.242, 0.342, 0.316, 0.216, 0.121, 0.026, -0.079, 0.179, 0.089, -0.005, 0.384, 0.274],
-        'yaw': [0.595, 0.728, 0.794, 0.761, 0.694, 0.463, 0.265, 0.132, 0.033, -0.165, -0.331, -0.529, -0.728, -0.893, -1.058, -1.224, -1.455, -1.389, -1.389, -1.389, -1.819, -1.257, -0.496, 0.132, 0.298, 0.0, -0.331, -0.661, -1.29, -1.488, -1.29, -1.157, -1.124, -0.827, -0.496, -0.165, 0.298, 0.198, -0.165, -0.331, -0.43, -0.529, 0.066, -0.198, -0.331, 0.496, 0.331],
-        'z': [0.107, 0.113, 0.114, 0.117, 0.114, 0.116, 0.114, 0.112, 0.113, 0.114, 0.113, 0.111, 0.107, 0.105, 0.102, 0.101, 0.087, 0.097, -0.010, 0.030, 0.046, 0.110, 0.099, 0.098, 0.092, 0.087, 0.086, 0.093, 0.098, 0.102, 0.097, 0.096, 0.098, 0.098, 0.105, 0.109, 0.106, 0.104, 0.101, 0.099, 0.109, 0.108, 0.106, 0.112, 0.111]
-    }
+    # LEFTHAND_RBF_POINTS = {
+    #     'x': [0.133, 0.208, 0.272, 0.338, 0.388, 0.420, 0.458, 0.483, 0.496, 0.480, 0.464, 0.433, 0.392, 0.344, 0.291, 0.227, 0.164, 0.152, 0.139, 0.123, 0.104, 0.111, 0.085, 0.069, 0.085, 0.158, 0.177, 0.193, 0.202, 0.218, 0.234, 0.313, 0.300, 0.278, 0.268, 0.240, 0.227, 0.313, 0.344, 0.366, 0.376, 0.385, 0.407, 0.426, 0.426, 0.272, 0.369],
+    #     'y': [0.395, 0.437, 0.447, 0.411, 0.358, 0.289, 0.216, 0.142, 0.074, 0.005, -0.068, -0.142, -0.2, -0.247, -0.279, -0.305, -0.321, -0.258, -0.184, -0.1, -0.005, 0.084, 0.163, 0.253, 0.326, 0.289, 0.189, 0.089, -0.016, -0.116, -0.205, -0.158, -0.053, 0.053, 0.153, 0.242, 0.342, 0.316, 0.216, 0.121, 0.026, -0.079, 0.179, 0.089, -0.005, 0.384, 0.274],
+    #     'yaw': [0.595, 0.728, 0.794, 0.761, 0.694, 0.463, 0.265, 0.132, 0.033, -0.165, -0.331, -0.529, -0.728, -0.893, -1.058, -1.224, -1.455, -1.389, -1.389, -1.389, -1.819, -1.257, -0.496, 0.132, 0.298, 0.0, -0.331, -0.661, -1.29, -1.488, -1.29, -1.157, -1.124, -0.827, -0.496, -0.165, 0.298, 0.198, -0.165, -0.331, -0.43, -0.529, 0.066, -0.198, -0.331, 0.496, 0.331],
+    #     'z': [0.107, 0.113, 0.114, 0.117, 0.114, 0.116, 0.114, 0.112, 0.113, 0.114, 0.113, 0.111, 0.107, 0.105, 0.102, 0.101, 0.087, 0.097, -0.010, 0.030, 0.046, 0.110, 0.099, 0.098, 0.092, 0.087, 0.086, 0.093, 0.098, 0.102, 0.097, 0.096, 0.098, 0.098, 0.105, 0.109, 0.106, 0.104, 0.101, 0.099, 0.109, 0.108, 0.106, 0.112, 0.111]
+    # }
 
     def __init__(self, urdf_path="./urdf/nico_grasper.urdf", motor_config='./nico_humanoid_upper_rh7d_ukba.json', connect_robot=True, gui=False):
         """
@@ -117,30 +117,31 @@ class Grasper:
         self.opposite = 170
         self.speed = self.SPEED
         self.delay = self.DELAY
-        self.righthand_rbf_yaw = Rbf(
-            self.RIGHTHAND_RBF_POINTS['x'],
-            self.RIGHTHAND_RBF_POINTS['y'],
-            self.RIGHTHAND_RBF_POINTS['yaw'],
-            function='multiquadric'                 # possible options: linear, gaussian
-        )
-        self.righthand_rbf_z = Rbf(
-            self.RIGHTHAND_RBF_POINTS['x'][0:18] + self.RIGHTHAND_RBF_POINTS['x'][20:],
-            self.RIGHTHAND_RBF_POINTS['y'][0:18] + self.RIGHTHAND_RBF_POINTS['y'][20:],
-            self.RIGHTHAND_RBF_POINTS['z'],
-            function='multiquadric'                 # possible options: linear, gaussian
-        )
-        self.lefthand_rbf_yaw = Rbf(
-            self.LEFTHAND_RBF_POINTS['x'],
-            self.LEFTHAND_RBF_POINTS['y'],
-            self.LEFTHAND_RBF_POINTS['yaw'],
-            function='multiquadric'                 # possible options: linear, gaussian
-        )
-        self.lefthand_rbf_z = Rbf(
-            self.LEFTHAND_RBF_POINTS['x'][0:18] + self.LEFTHAND_RBF_POINTS['x'][20:],
-            self.LEFTHAND_RBF_POINTS['y'][0:18] + self.LEFTHAND_RBF_POINTS['y'][20:],
-            self.LEFTHAND_RBF_POINTS['z'],
-            function='multiquadric'                 # possible options: linear, gaussian
-        )
+        self.rh_rbf = RbfInterpolator()
+        # self.righthand_rbf_yaw = Rbf(
+        #     self.RIGHTHAND_RBF_POINTS['x'],
+        #     self.RIGHTHAND_RBF_POINTS['y'],
+        #     self.RIGHTHAND_RBF_POINTS['yaw'],
+        #     function='multiquadric'                 # possible options: linear, gaussian
+        # )
+        # self.righthand_rbf_z = Rbf(
+        #     self.RIGHTHAND_RBF_POINTS['x'][0:18] + self.RIGHTHAND_RBF_POINTS['x'][20:],
+        #     self.RIGHTHAND_RBF_POINTS['y'][0:18] + self.RIGHTHAND_RBF_POINTS['y'][20:],
+        #     self.RIGHTHAND_RBF_POINTS['z'],
+        #     function='multiquadric'                 # possible options: linear, gaussian
+        # )
+        # self.lefthand_rbf_yaw = Rbf(
+        #     self.LEFTHAND_RBF_POINTS['x'],
+        #     self.LEFTHAND_RBF_POINTS['y'],
+        #     self.LEFTHAND_RBF_POINTS['yaw'],
+        #     function='multiquadric'                 # possible options: linear, gaussian
+        # )
+        # self.lefthand_rbf_z = Rbf(
+        #     self.LEFTHAND_RBF_POINTS['x'][0:18] + self.LEFTHAND_RBF_POINTS['x'][20:],
+        #     self.LEFTHAND_RBF_POINTS['y'][0:18] + self.LEFTHAND_RBF_POINTS['y'][20:],
+        #     self.LEFTHAND_RBF_POINTS['z'],
+        #     function='multiquadric'                 # possible options: linear, gaussian
+        # )
 
         self.xy2xy_model = keras.models.load_model('nn_models/xy_to_xy/xy_to_xy_model.keras')
         self.xy2xy_mean_std = {}
@@ -159,6 +160,7 @@ class Grasper:
             self.xy2xyz_mean_std['x_std'] = float(data[1])
             self.xy2xyz_mean_std['y_mean'] = float(data[2])
             self.xy2xyz_mean_std['y_std'] = float(data[3])
+        self.ee_box_visible = False
 
         try:
             # Connect to PyBullet (GUI or DIRECT)
@@ -190,6 +192,13 @@ class Grasper:
             print (f"Left gripper joints: {self.left_gripper_actuated}")
             print(f"Left end effector index: {self.end_effector_index_l}")
             print(f"Right end effector index: {self.end_effector_index_r}")
+
+            self.ee_box_id = p.createMultiBody(                  # box visualising end effector location
+                baseMass=0, # Set mass to 0 if it's only visual
+                baseCollisionShapeIndex=-1, # No collision shape
+                baseVisualShapeIndex=p.createVisualShape(p.GEOM_BOX, halfExtents=[0.01]*3, rgbaColor=[1, 0.0, 0.0, 0.0]),
+                basePosition=[0, 0, 0]
+            )
         except Exception as e:
             print(f"Error connecting to PyBullet or loading URDF: {e}")
             self.is_pybullet_connected = False
@@ -632,17 +641,21 @@ class Grasper:
 
         if autozpos:
             if side.lower() == 'left':
-                pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
+                # pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
+                print("lefthand autozpos not implemented")
             else:
                 # pos[2] = calculate_z(pos[0], pos[1]) + 0.04
-                pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
+                # pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
+                pos[2] = self.rh_rbf.predict_z(pos[0], pos[1]) - 0.001
 
         if autoori:
             if side.lower() == 'left':
-                ori[2] = self.lefthand_rbf_yaw(pos[0], pos[1])
+                # ori[2] = self.lefthand_rbf_yaw(pos[0], pos[1])
+                print("lefthand autoori not implemented")
             else:
                 # ori[2] = self.compute_ori_from_pos(pos)
-                ori[2] = self.righthand_rbf_yaw(pos[0], pos[1])
+                # ori[2] = self.righthand_rbf_yaw(pos[0], pos[1])
+                ori[2] = self.rh_rbf.predict_yaw(pos[0], pos[1], pos[2])
 
         ik_solution_nico_deg = self.rad2nicodeg(self.joint_names, self.calculate_ik(side, pos, ori))
 
@@ -1074,10 +1087,12 @@ class Grasper:
     def pick_object(self, pos, ori, side, autozpos=False, autoori=False, shift_for_grasping=0.0):
         if autozpos:
             if side.lower() == 'left':
-                pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
+                # pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
+                print("lefthand autozpos not implemented")
             else:
-                pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
-        self.move_arm([pos[0],pos[1],pos[2]+0.12], ori, side, autoori=autoori)
+                # pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
+                pos[2] = self.rh_rbf.predict_z(pos[0], pos[1]) - 0.001
+        self.move_arm([pos[0],pos[1],pos[2]+0.06], ori, side, autoori=autoori)
         time.sleep(1)
         self.move_arm(pos, ori, side, autoori=autoori, shift_for_grasping=shift_for_grasping)
         time.sleep(1)
@@ -1221,7 +1236,7 @@ class Grasper:
         y_mean = self.xy2xy_mean_std['y_mean']
         y_std = self.xy2xy_mean_std['y_std']
 
-        x_tab, y_tab = sim2tab(x, y)
+        x_tab, y_tab = sim2tab_old(x, y)
 
         target = array([[x_tab, y_tab]])
         print(f"Input target: {target}")
@@ -1239,7 +1254,7 @@ class Grasper:
         y_mean = self.xy2xyz_mean_std['y_mean']
         y_std = self.xy2xyz_mean_std['y_std']
 
-        x_tab, y_tab = sim2tab(x, y)
+        x_tab, y_tab = sim2tab_old(x, y)
 
         target = array([[x_tab, y_tab]])
         print(f"Input target: {target}")
@@ -1268,6 +1283,20 @@ class Grasper:
         for joint in self.joint_names:
             if 'head' not in joint:
                 self.robot.enableTorque(joint)
+    
+    def switch_opacitiy_of_ee_box(self):
+        if self.ee_box_visible:
+            p.changeVisualShape(self.ee_box_id, -1, rgbaColor=[1, 0, 0, 0])
+            self.ee_box_visible = False
+        else:
+            p.changeVisualShape(self.ee_box_id, -1, rgbaColor=[1, 0, 0, 1])
+            self.ee_box_visible = True
+    
+    def update_loc_of_ee_box(self):
+        # print(f'self.end_effector_index_r: {self.end_effector_index_r}')
+        state = p.getLinkState(self.robot_id, self.end_effector_index_r)
+        pos, ori = state[0], state[1]
+        p.resetBasePositionAndOrientation(self.ee_box_id, pos, ori)
 
     def disconnect(self):
         """Disconnects from PyBullet and potentially cleans up hardware resources."""
