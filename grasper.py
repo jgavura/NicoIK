@@ -620,7 +620,7 @@ class Grasper:
         ori_yaw = m * y + b
         return ori_yaw
     
-    def move_arm(self, pos, ori, side, autozpos=False, autoori=False, shift_for_grasping=0.0):
+    def move_arm(self, pos, ori, side, autozpos=False, z_offset=0.0, autoori=False, shift_for_grasping=0.0, raise_palm=False):
         """
         Moves the robot arm(s) to the specified target angles (degrees) based on the side.
         If side is 'both', calculates IK for left with negated y.
@@ -647,6 +647,8 @@ class Grasper:
                 # pos[2] = calculate_z(pos[0], pos[1]) + 0.04
                 # pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
                 pos[2] = self.rh_rbf.predict_z(pos[0], pos[1]) - 0.001
+        
+        pos[2] += z_offset
 
         if autoori:
             if side.lower() == 'left':
@@ -687,6 +689,10 @@ class Grasper:
         if not filtered_solution:
             print(f"No valid joints found for the {side} arm in the IK solution.")
             return
+        
+        if raise_palm:
+            print(f'ik solution: {filtered_solution}')
+            filtered_solution['r_wrist_x'] = -180.0
 
         print(f"Moving {side} arm to filtered IK solution angles...")
         success_count = 0
@@ -1084,18 +1090,38 @@ class Grasper:
                 print(f"  Skipping {joint_name} due to invalid angle.")
         time.sleep(self.delay/2)  # Delay after the move completes
 
-    def pick_object(self, pos, ori, side, nn_model=1, autozpos=False, autoori=False, shift_for_grasping=0.0):
+    def pick_object(self, pos, ori, side, nn_model=1, autozpos=False, autoori=False, shift_for_grasping=0.0, skip_first_step=False):
         x, y, z = pos
 
-        if nn_model == 3:
-            x_pred, y_pred, z_pred = self.get_xy2xyz_prediction(x, y)
-            print(f'predicted point: {x}, {y}')
+        if nn_model != 1:
+            # push the point from robot base
+            push_dist = 0.02
+            d = sqrt(x**2 + y**2)
+            x = x + push_dist * (x / d)
+            y = y + push_dist * (y / d)
 
-            if 0.27 < x_pred < 0.48 and -0.23 < y_pred < 0.23:
-                print('inside nn correction zone')
-                z = z_pred + 0.04
+            if nn_model == 3:
+                x_pred, y_pred, z_pred = self.get_xy2xyz_prediction(x, y)
+
+                if 0.27 < x_pred < 0.48 and -0.23 < y_pred < 0.23:
+                    print('inside nn correction zone')
+                    z = z_pred + 0.04
+                else:
+                    print('otside nn correction zone')
+                    if side.lower() == 'left':
+                        # pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
+                        print("lefthand autozpos not implemented")
+                    else:
+                        # pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
+                        z = self.rh_rbf.predict_z(x, y) - 0.001
             else:
-                print('otside nn correction zone')
+                x_pred, y_pred = self.get_xy2xy_prediction(x, y)
+
+                if 0.27 < x_pred < 0.48 and -0.23 < y_pred < 0.23:
+                    print('inside nn correction zone')
+                else:
+                    print('otside nn correction zone')
+                    
                 if side.lower() == 'left':
                     # pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
                     print("lefthand autozpos not implemented")
@@ -1103,7 +1129,9 @@ class Grasper:
                     # pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
                     z = self.rh_rbf.predict_z(x, y) - 0.001
             
+            print(f'predicted point: {x_pred}, {y_pred}')
             x, y = x_pred, y_pred
+            shift_for_grasping = 3.0
 
         else:
             if autozpos:
@@ -1114,10 +1142,11 @@ class Grasper:
                     # pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
                     z = self.rh_rbf.predict_z(x, y) - 0.001
 
-        self.move_arm([x,y,z+0.06], ori, side, autoori=autoori)
-        time.sleep(1)
+        if not skip_first_step:
+            self.move_arm([x,y,z+0.06], ori, side, autoori=autoori)
+            time.sleep(1)
         self.move_arm([x,y,z], ori, side, autoori=autoori, shift_for_grasping=shift_for_grasping)
-        time.sleep(1)
+        # time.sleep(1)
         self.close_gripper(side)
         self.move_arm([x,y,z+0.12], ori, side, autoori=autoori) # Close right gripper
 
