@@ -1084,20 +1084,42 @@ class Grasper:
                 print(f"  Skipping {joint_name} due to invalid angle.")
         time.sleep(self.delay/2)  # Delay after the move completes
 
-    def pick_object(self, pos, ori, side, autozpos=False, autoori=False, shift_for_grasping=0.0):
-        if autozpos:
-            if side.lower() == 'left':
-                # pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
-                print("lefthand autozpos not implemented")
+    def pick_object(self, pos, ori, side, nn_model=1, autozpos=False, autoori=False, shift_for_grasping=0.0):
+        x, y, z = pos
+
+        if nn_model == 3:
+            x_pred, y_pred, z_pred = self.get_xy2xyz_prediction(x, y)
+            print(f'predicted point: {x}, {y}')
+
+            if 0.27 < x_pred < 0.48 and -0.23 < y_pred < 0.23:
+                print('inside nn correction zone')
+                z = z_pred + 0.04
             else:
-                # pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
-                pos[2] = self.rh_rbf.predict_z(pos[0], pos[1]) - 0.001
-        self.move_arm([pos[0],pos[1],pos[2]+0.06], ori, side, autoori=autoori)
+                print('otside nn correction zone')
+                if side.lower() == 'left':
+                    # pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
+                    print("lefthand autozpos not implemented")
+                else:
+                    # pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
+                    z = self.rh_rbf.predict_z(x, y) - 0.001
+            
+            x, y = x_pred, y_pred
+
+        else:
+            if autozpos:
+                if side.lower() == 'left':
+                    # pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
+                    print("lefthand autozpos not implemented")
+                else:
+                    # pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
+                    z = self.rh_rbf.predict_z(x, y) - 0.001
+
+        self.move_arm([x,y,z+0.06], ori, side, autoori=autoori)
         time.sleep(1)
-        self.move_arm(pos, ori, side, autoori=autoori, shift_for_grasping=shift_for_grasping)
+        self.move_arm([x,y,z], ori, side, autoori=autoori, shift_for_grasping=shift_for_grasping)
         time.sleep(1)
         self.close_gripper(side)
-        self.move_arm([pos[0],pos[1],pos[2]+0.12], ori, side, autoori=autoori) # Close right gripper
+        self.move_arm([x,y,z+0.12], ori, side, autoori=autoori) # Close right gripper
 
     def approach_object(self, pos, ori, side):
         self.move_arm([pos[0],pos[1],pos[2]+0.05], ori, side)

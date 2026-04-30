@@ -356,11 +356,11 @@ while True:
 
         x, y, z = torso_point
         print(f'torso point: {x}, {y}')
-        x_pred, y_pred = grasper.get_xy2xy_prediction(x, y)
-        print(f'predicted point: {x_pred}, {y_pred}')
+        # x_pred, y_pred = grasper.get_xy2xy_prediction(x, y)
+        # print(f'predicted point: {x_pred}, {y_pred}')
 
-        # grasper.pick_object(torso_point, [0, 0, 0], 'right', autozpos=True, autoori=True, shift_for_grasping=3.0)
-        grasper.pick_object([x_pred, y_pred, z], [0, 0, 0], 'right', autozpos=True, autoori=True)
+        grasper.pick_object(torso_point, [0, 0, 0], 'right', nn_model=3, autozpos=True, autoori=True, shift_for_grasping=0.0)
+        # grasper.pick_object([x_pred, y_pred, z], [0, 0, 0], 'right', autozpos=True, autoori=True)
     
 
     if key == ord('j'):             # grasp with hand correction

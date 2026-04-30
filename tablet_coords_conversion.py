@@ -2,10 +2,10 @@ import random
 import calibration_matrices
 
 
-def tab2sim_old(y, x):
-    if y > 1920 or y < 0 or x > 1080 or x < 0:
+def tab2sim_old(y, x, check_tablet_limits=False):
+    if check_tablet_limits and (y > 1920 or y < 0 or x > 1080 or x < 0):
         print("Invalid tablet coordinates")
-        quit()
+        return None, None
 
     y_ratio = 1 - y / 1920
     x_ratio = 1 - x / 1080
@@ -14,10 +14,10 @@ def tab2sim_old(y, x):
 
     return x_sim, y_sim
 
-def tab2sim(y, x):
-    if y > 1920 or y < 0 or x > 1080 or x < 0:
+def tab2sim(y, x, check_tablet_limits=False):
+    if check_tablet_limits and (y > 1920 or y < 0 or x > 1080 or x < 0):
         print("Invalid tablet coordinates")
-        quit()
+        return None, None
 
     y_ratio = 1 - y / 1920
     x_ratio = 1 - x / 1080
@@ -27,10 +27,10 @@ def tab2sim(y, x):
     return x_sim, y_sim
 
 
-def sim2tab_old(x, y):
-    if x > 0.57 or x < 0.25 or y > 0.26 or y < -0.26:
+def sim2tab_old(x, y, check_tablet_limits=False):
+    if check_tablet_limits and (x > 0.57 or x < 0.25 or y > 0.26 or y < -0.26):
         print("Invalid sim coordinates for tablet")
-        quit()
+        return None, None
 
     x_ratio = 1 - (x - 0.25) / 0.32
     y_ratio = 1 - (y - -0.26) / 0.52
@@ -39,10 +39,10 @@ def sim2tab_old(x, y):
 
     return y_sim, x_sim
 
-def sim2tab(x, y):
-    if x > 0.55 or x < 0.28 or y > 0.24 or y < -0.24:
+def sim2tab(x, y, check_tablet_limits=False):
+    if check_tablet_limits and (x > 0.55 or x < 0.28 or y > 0.24 or y < -0.24):
         print("Invalid sim coordinates for tablet")
-        quit()
+        return None, None
 
     x_ratio = 1 - (x - 0.28) / 0.27
     y_ratio = 1 - (y - -0.24) / 0.48

@@ -197,6 +197,8 @@ class StereoVision:
                     print(f"Modified torso point using scale {0.8} (dist > 720):")
                 print(f"{torso_p_modified[1]:.3f} {torso_p_modified[0]:.3f} {torso_p_modified[2]:.3f} {dist:.3f}")
 
+                torso_p = torso_p_modified
+
                 # for scale in range(70, 100):
                 #     scale /= 100
                 #     torso_p_modified = self.apply_pivot_correction_2d(torso_p, scale=scale)
