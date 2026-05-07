@@ -1,4 +1,5 @@
 # Grasping experiment - NN Model 3 - z5 - grid
+# for targets inside nn correction zone, z coordinate is estimated by nn, outside by rbf interpolation
 # target_x target_y target_z attempt1 attempt2 attempt3
 -0.4 0.2 0.05 0 0 0
 -0.4 0.3 0.05 0 1 0

@@ -2,7 +2,7 @@ import cv2
 import time
 import os
 import pybullet as p
-from numpy import deg2rad, sin, cos, tan, pi, linalg
+from numpy import deg2rad, sin, cos, tan, pi, linalg, concatenate
 from ultralytics import YOLO
 from camera import Camera
 from stereo_vision import StereoVision
@@ -138,15 +138,16 @@ frame_index = FRAME_STARTING_INDEX
 align_counter = 0
 target_pos = None
 target_pos_last = None
+hidden_target_coord_difs_l, hidden_target_coord_difs_r = None, None
 # Main loop to capture and save frames
 while True:
-    target_coord_diffs_r, frame_r = None, None
-    target_coord_diffs_l, cx_l, cy_l, frame_l = None, None, None, None
+    target_coord_difs_r, frame_r = None, None
+    target_coord_difs_l, cx_l, cy_l, frame_l = None, None, None, None
     head_z, head_y = None, None
     
     if annotate:
-        target_coord_diffs_r, result_r, frame_r = camera_right.annotate(model, target_class, only_one_target=True, filter_hands=True)
-        target_coord_diffs_l, result_l, frame_l = camera_left.annotate(model, target_class, only_one_target=True, filter_hands=True)
+        target_coord_difs_r, result_r, frame_r = camera_right.annotate(model, target_class, only_one_target=True, filter_hands=True)
+        target_coord_difs_l, result_l, frame_l = camera_left.annotate(model, target_class, only_one_target=True, filter_hands=True)
         head_z = grasper.robot.getAngle("head_z")
         head_y = grasper.robot.getAngle("head_y")
     else:
@@ -204,64 +205,59 @@ while True:
         align_counter = 0
         target_pos = None
         target_pos_last = None
+        hidden_target_coord_difs_l, hidden_target_coord_difs_r = None, None
 
-    # if key == ord('p'):  # Print head position and target diffs
-    #     head_z = grasper.robot.getAngle("head_z")
-    #     head_y = grasper.robot.getAngle("head_y")
-    #     print(f"head_z, head_y = {head_z} {head_y}")
-    #     head_z_dif = head_z - INIT_POS['head_z']
-    #     head_y_dif = head_y - INIT_POS['head_y']
-    #     print(f"head_z_dif, head_y_dif = {head_z_dif} {head_y_dif}")
-
-    #     if target_coord_diffs_r:
-    #         x_dif = (target_coord_diffs_r[0] + target_coord_diffs_l[0]) / 2
-    #         y_dif = (target_coord_diffs_r[1] + target_coord_diffs_l[1]) / 2
-    #         print(f"x_dif, y_dif = {x_dif} {y_dif}")
-    #         # print(f"target_coord_diffs_r = {target_coord_diffs_r}, target_coord_diffs_l = {target_coord_diffs_l}")
+    if key == ord('p'):  # Print some angles
+        r_elbow_y = grasper.robot.getAngle("r_elbow_y")
+        r_wrist_z = grasper.robot.getAngle("r_wrist_z")
+        r_wrist_x = grasper.robot.getAngle("r_wrist_x")
+        print(f"r_elbow_y = {r_elbow_y}")
+        print(f"r_wrist_z = {r_wrist_z}")
+        print(f"r_wrist_x = {r_wrist_x}")
     
-    if key == ord('f'):                         # find using yolo and iteratiions
-        start_time = time.time()  # Record the starting time
-        timeout_limit = 5.0      # Set timeout in seconds
-        timed_out = False
+    # if key == ord('f'):                         # find using yolo and iteratiions
+    #     start_time = time.time()  # Record the starting time
+    #     timeout_limit = 5.0      # Set timeout in seconds
+    #     timed_out = False
         
-        while True:
-            if time.time() - start_time > timeout_limit:
-                print(f"Timeout reached: Could not center the target within {timeout_limit} seconds.")
-                timed_out = True
-                head_z = grasper.robot.getAngle("head_z")
-                head_y = grasper.robot.getAngle("head_y")
-                grasper.move_head(head_z, head_y + 1.0)
-                break
+    #     while True:
+    #         if time.time() - start_time > timeout_limit:
+    #             print(f"Timeout reached: Could not center the target within {timeout_limit} seconds.")
+    #             timed_out = True
+    #             head_z = grasper.robot.getAngle("head_z")
+    #             head_y = grasper.robot.getAngle("head_y")
+    #             grasper.move_head(head_z, head_y + 1.0)
+    #             break
 
-            actual_position = grasper.get_real_joint_angles()
-            for i in range(len(grasper.joint_indices)):
-                joint_name = grasper.joint_names[i]
-                p.resetJointState(grasper.robot_id, grasper.joint_indices[i], grasper.nicodeg2rad(joint_name, actual_position[joint_name]))
-            p.stepSimulation()
+    #         actual_position = grasper.get_real_joint_angles()
+    #         for i in range(len(grasper.joint_indices)):
+    #             joint_name = grasper.joint_names[i]
+    #             p.resetJointState(grasper.robot_id, grasper.joint_indices[i], grasper.nicodeg2rad(joint_name, actual_position[joint_name]))
+    #         p.stepSimulation()
             
-            target_coord_diffs_r = camera_right.annotate(model, target_class)[0]
-            target_coord_diffs_l = camera_left.annotate(model, target_class)[0]
+    #         target_coord_diffs_r = camera_right.annotate(model, target_class)[0]
+    #         target_coord_diffs_l = camera_left.annotate(model, target_class)[0]
 
-            if target_coord_diffs_r:
-                head_z = grasper.robot.getAngle("head_z")
-                head_y = grasper.robot.getAngle("head_y")
+    #         if target_coord_diffs_r:
+    #             head_z = grasper.robot.getAngle("head_z")
+    #             head_y = grasper.robot.getAngle("head_y")
 
-                # print(f"head_z = {head_z}, head_y = {head_y}")
+    #             # print(f"head_z = {head_z}, head_y = {head_y}")
 
-                x_dif = (target_coord_diffs_r[0] + target_coord_diffs_l[0]) / 2
-                y_dif = (target_coord_diffs_r[1] + target_coord_diffs_l[1]) / 2
-                # print(f"x_dif = {x_dif}, y_dif = {y_dif}")
+    #             x_dif = (target_coord_diffs_r[0] + target_coord_diffs_l[0]) / 2
+    #             y_dif = (target_coord_diffs_r[1] + target_coord_diffs_l[1]) / 2
+    #             # print(f"x_dif = {x_dif}, y_dif = {y_dif}")
 
-                if abs(x_dif) < 2 and abs(y_dif) < 2:
-                    print(f"Target is close to center")
-                    grasper.move_head(head_z, head_y)
-                    break
-                else:
-                    grasper.move_head(head_z + x_dif * 0.7, head_y + y_dif * 0.7)
+    #             if abs(x_dif) < 2 and abs(y_dif) < 2:
+    #                 print(f"Target is close to center")
+    #                 grasper.move_head(head_z, head_y)
+    #                 break
+    #             else:
+    #                 grasper.move_head(head_z + x_dif * 0.7, head_y + y_dif * 0.7)
 
-        # grasper.move_head(head_z, head_y + 1.0)
-        grasper.enable_torque_head()
-        head_torque_enabled = True
+    #     # grasper.move_head(head_z, head_y + 1.0)
+    #     grasper.enable_torque_head()
+    #     head_torque_enabled = True
     
     if key == ord('b'):                         # move head in direction of target
         head_z = grasper.robot.getAngle("head_z")
@@ -269,8 +265,12 @@ while True:
 
         # print(f"head_z = {head_z}, head_y = {head_y}")
 
-        x_dif = (target_coord_diffs_r[0] + target_coord_diffs_l[0]) / 2
-        y_dif = (target_coord_diffs_r[1] + target_coord_diffs_l[1]) / 2
+        if align_counter > 0:
+            x_dif = (hidden_target_coord_difs_r[0] + hidden_target_coord_difs_l[0]) / 2
+            y_dif = ((hidden_target_coord_difs_r[1] + hidden_target_coord_difs_l[1]) / 2).item()
+        else:
+            x_dif = (target_coord_difs_r[0] + target_coord_difs_l[0]) / 2
+            y_dif = ((target_coord_difs_r[1] + target_coord_difs_l[1]) / 2).item()
         # print(f"x_dif = {x_dif}, y_dif = {y_dif}")
 
         if abs(x_dif) < 2 and abs(y_dif) < 2:
@@ -278,16 +278,16 @@ while True:
             grasper.move_head(head_z, head_y)
             break
         else:
-            grasper.move_head(head_z + x_dif * 0.7, head_y + y_dif * 0.7)
+            grasper.move_head(head_z + x_dif * 0.1, head_y + y_dif * 0.1)
     
     if key == ord('d'):             # print coordinates of an object found with yolo
-        if not target_coord_diffs_l:
+        if not target_coord_difs_l:
             print(f'Yolo not activated or object not found')
             continue
 
         cx_l, cy_l = get_centroid(model, result_l, target_class, lower=False)
 
-        print(f'target_coord_diffs_l: {target_coord_diffs_l}')
+        print(f'target_coord_diffs_l: {target_coord_difs_l}')
         print(f'cx_l: {cx_l}')
         print(f'cy_l: {cy_l}')
         print(f'head_z: {head_z}')
@@ -298,13 +298,13 @@ while True:
         torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "")
     
     if key == ord('m'):             # print modified coordinates of an object found with yolo while focused
-        if not target_coord_diffs_l:
+        if not target_coord_difs_l:
             print(f'Yolo not activated or object not found')
             continue
 
         cx_l, cy_l = get_centroid(model, result_l, target_class, lower=False)
 
-        print(f'target_coord_diffs_l: {target_coord_diffs_l}')
+        print(f'target_coord_diffs_l: {target_coord_difs_l}')
         print(f'cx_l: {cx_l}')
         print(f'cy_l: {cy_l}')
         print(f'head_z: {head_z}')
@@ -318,13 +318,13 @@ while True:
         torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "focused")
     
     if key == ord('n'):             # print modified coordinates of an object found with yolo while unfocused
-        if not target_coord_diffs_l:
+        if not target_coord_difs_l:
             print(f'Yolo not activated or object not found')
             continue
 
         cx_l, cy_l = get_centroid(model, result_l, target_class, lower=False)
 
-        print(f'target_coord_diffs_l: {target_coord_diffs_l}')
+        print(f'target_coord_diffs_l: {target_coord_difs_l}')
         print(f'cx_l: {cx_l}')
         print(f'cy_l: {cy_l}')
         print(f'head_z: {head_z}')
@@ -333,9 +333,11 @@ while True:
         debug_show_detection(frame_l, cx_l, cy_l)
 
         torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "")
+        print(f'Z: {torso_point[2]}')
 
         # print("Modified torso point:")
-        torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused")
+        torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused", True)
+        print(f'Z: {torso_point[2]}')
     
     if key == ord('k'):             # print coordinates of a place nico is looking at using kinematic chain
         x, y, z = grasper.get_target_position(extra_y_tilt=0.0)
@@ -356,7 +358,7 @@ while True:
     if key == ord('r'):             # print coordinates of right arm
         cx_l, cy_l = get_centroid(model, result_l, 'RightHand', lower=False)
 
-        print(f'target_coord_diffs_l: {target_coord_diffs_l}')
+        print(f'target_coord_diffs_l: {target_coord_difs_l}')
         print(f'cx_l: {cx_l}')
         print(f'cy_l: {cy_l}')
         print(f'head_z: {head_z}')
@@ -375,9 +377,16 @@ while True:
             continue
 
         if align_counter > 0:
+            print(f'target_pos_last[:2]: {target_pos_last[:2]}')
+            print(f'[target_pos[2]]: {[target_pos[2]]}')
+
+            target_pos = concatenate([target_pos_last[:2], [target_pos[2]]])
+
+            print(f'target_pos: {target_pos}')
+
             print('Grasping with aligned hand')
             grasper.pick_object(
-                target_pos_last,
+                target_pos,
                 [0, 0, 0],
                 'right',
                 nn_model=1,
@@ -390,20 +399,23 @@ while True:
             align_counter = 0
             target_pos = None
             target_pos_last = None
+            hidden_target_coord_difs_l, hidden_target_coord_difs_r = None, None
         
         else:
             cx_l, cy_l = get_centroid(model, result_l, target_class, lower=False)
 
             debug_show_detection(frame_l, cx_l, cy_l)
-            torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused")
+            torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused", True)
 
             x, y, z = torso_point
-            print(f'torso point: {x}, {y}')
+            print(f'torso point: {x}, {y}, {z}')
             # x_pred, y_pred = grasper.get_xy2xy_prediction(x, y)
             # print(f'predicted point: {x_pred}, {y_pred}')
 
-            grasper.pick_object(torso_point, [0, 0, 0], 'right', nn_model=2, autozpos=True, autoori=True)
-            # grasper.pick_object([x_pred, y_pred, z], [0, 0, 0], 'right', autozpos=True, autoori=True)
+            z = max(z, 0.03)
+
+            grasper.pick_object([x, y, z], [0, 0, 0], 'right', nn_model=3, autozpos=True, autoori=True)
+            # grasper.pick_object([x, y, z], [0, 0, 0], 'right', autozpos=True, autoori=True)
     
 
     if key == ord('j'):             # align hand with object
@@ -412,12 +424,16 @@ while True:
             continue
 
         if align_counter == 0:
+            hidden_target_coord_difs_l, hidden_target_coord_difs_r = target_coord_difs_l, target_coord_difs_r
+
             cx_l, cy_l = get_centroid(model, result_l, target_class, lower=False)
 
             debug_show_detection(frame_l, cx_l, cy_l)
-            target_torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused")
+            target_torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused", True)
 
-            grasper.move_arm(target_torso_point, [0, 0, 0], 'right', autozpos=True, z_offset=0.05, autoori=True, raise_palm=True)
+            target_torso_point[2] = max(target_torso_point[2], 0.03)
+
+            grasper.move_arm(target_torso_point, [0, 0, 0], 'right', autozpos=True, z_offset=0.05, autoori=True, adjust_palm=True)
 
             target_pos = target_torso_point
             target_pos_last = target_torso_point
@@ -426,11 +442,15 @@ while True:
             cx_l, cy_l = get_centroid(model, result_l, 'RightHand', lower=False)
 
             if cx_l == None:
-                print('Hand not found')
+                print('RightHand not found, trying left')
+                cx_l, cy_l = get_centroid(model, result_l, 'LeftHand', lower=False)
+            
+            if cx_l == None:
+                print('LeftHand not found, continue')
                 continue
                 
             debug_show_detection(frame_l, cx_l, cy_l)
-            target_torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused")
+            target_torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused", True)
 
             print('=' * 20)
             print(f'target_pos: {target_pos}')
@@ -448,14 +468,76 @@ while True:
             new_target = target_pos_last.copy()
             new_target[:2] += error_xy
 
+            new_target[2] = max(new_target[2], 0.03)
+
             print(f'new target: {new_target}')
 
-            grasper.move_arm(new_target, [0, 0, 0], 'right', autozpos=True, z_offset=0.05, autoori=True, raise_palm=True)
+            grasper.move_arm(new_target, [0, 0, 0], 'right', autozpos=True, z_offset=0.05, autoori=True, adjust_palm=True)
 
             target_pos_last = new_target
             align_counter += 1
 
             print('Hand aligned')
+    
+    if key == ord('1'):             # grasp model 1
+        if not annotate:
+            print(f'Yolo not activated or object not found')
+            continue
+
+        cx_l, cy_l = get_centroid(model, result_l, target_class, lower=False)
+
+        debug_show_detection(frame_l, cx_l, cy_l)
+        torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused", True)
+
+        x, y, z = torso_point
+        print(f'torso point: {x}, {y}, {z}')
+        # x_pred, y_pred = grasper.get_xy2xy_prediction(x, y)
+        # print(f'predicted point: {x_pred}, {y_pred}')
+
+        z = max(z, 0.03)
+
+        # grasper.pick_object([x, y, z], [0, 0, 0], 'right', nn_model=3, autozpos=True, autoori=True)
+        grasper.pick_object([x, y, z], [0, 0, 0], 'right', autozpos=True, autoori=True)
+    
+    if key == ord('2'):             # grasp model 2
+        if not annotate:
+            print(f'Yolo not activated or object not found')
+            continue
+
+        cx_l, cy_l = get_centroid(model, result_l, target_class, lower=False)
+
+        debug_show_detection(frame_l, cx_l, cy_l)
+        torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused", True)
+
+        x, y, z = torso_point
+        print(f'torso point: {x}, {y}, {z}')
+        # x_pred, y_pred = grasper.get_xy2xy_prediction(x, y)
+        # print(f'predicted point: {x_pred}, {y_pred}')
+
+        z = max(z, 0.03)
+
+        grasper.pick_object([x, y, z], [0, 0, 0], 'right', nn_model=2, autozpos=True, autoori=True)
+        # grasper.pick_object([x, y, z], [0, 0, 0], 'right', autozpos=True, autoori=True)
+    
+    if key == ord('3'):             # grasp model 3
+        if not annotate:
+            print(f'Yolo not activated or object not found')
+            continue
+
+        cx_l, cy_l = get_centroid(model, result_l, target_class, lower=False)
+
+        debug_show_detection(frame_l, cx_l, cy_l)
+        torso_point = sv.get_object_3d_position(frame_l, frame_r, cx_l, cy_l, head_z, head_y, "unfocused", True)
+
+        x, y, z = torso_point
+        print(f'torso point: {x}, {y}, {z}')
+        # x_pred, y_pred = grasper.get_xy2xy_prediction(x, y)
+        # print(f'predicted point: {x_pred}, {y_pred}')
+
+        z = max(z, 0.03)
+
+        grasper.pick_object([x, y, z], [0, 0, 0], 'right', nn_model=3, autozpos=True, autoori=True)
+        # grasper.pick_object([x, y, z], [0, 0, 0], 'right', autozpos=True, autoori=True)
 
     
     if key == ord('e'):                     # show end effector position

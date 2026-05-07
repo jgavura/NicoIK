@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 # --- CONFIGURATION ---
 X_START, X_END, X_STEP = -0.4, 0.3, 0.1
 Y_START, Y_END, Y_STEP = 0.2, 0.4, 0.1
-OUTPUT_FILE = "experiment_grasping/data/z5/model2_z5_grid.txt"
+OUTPUT_FILE = "experiment_grasping/data/z10/baseline_z10_grid.txt"
 
 def generate_grid_and_plot():
     points = []
@@ -22,10 +22,10 @@ def generate_grid_and_plot():
     # 2. Save to text file (space-separated)
     try:
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-            f.write(f"# Grasping experiment - NN Model 2 - z5 - grid\n")
+            f.write(f"# Grasping experiment - baseline - z10 - grid\n")
             f.write(f"# target_x target_y target_z attempt1 attempt2 attempt3\n")
             for x, y in points:
-                f.write(f"{x} {y} {0.05} \n")
+                f.write(f"{x} {y} {0.10} \n")
         print(f"Successfully saved {len(points)} grid points to {OUTPUT_FILE}")
     except IOError as e:
         print(f"Error writing to file: {e}")

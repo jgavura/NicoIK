@@ -6,6 +6,7 @@ from numpy import random, rad2deg, deg2rad, set_printoptions, array, linalg, rou
 import sys  # Add this import at the top of the file
 from sim_height_calculation import calculate_z
 from tablet_coords_conversion import sim2tab, sim2tab_old
+from headlimiter import head_z_limits
 import threading
 from rbf_z_yaw import RbfInterpolator
 
@@ -619,8 +620,29 @@ class Grasper:
         b = 0 - m * (-0.3)
         ori_yaw = m * y + b
         return ori_yaw
+
+    def adjust_right_palm(self, ik_solution):
+        clamped_elbow_y = max(60.0, min(160.0, float(ik_solution['r_elbow_y'])))
+
+        ratio = (clamped_elbow_y - 60.0) / 100.0
+
+        # Extremes for Wrist X (Palm):
+        corr_x_at_60 = 0.0
+        corr_x_at_160 = -180.0
     
-    def move_arm(self, pos, ori, side, autozpos=False, z_offset=0.0, autoori=False, shift_for_grasping=0.0, raise_palm=False):
+        # Extremes for Wrist Z (Rotation):
+        corr_z_at_60 = 120.0
+        corr_z_at_160 = 0.0
+
+        actual_corr_x = ratio * corr_x_at_160
+        actual_corr_z = (1 - ratio) * corr_z_at_60
+
+        ik_solution['r_wrist_x'] += actual_corr_x
+        ik_solution['r_wrist_z'] += actual_corr_z
+
+        return ik_solution
+    
+    def move_arm(self, pos, ori, side, autozpos=False, z_offset=0.0, autoori=False, shift_for_grasping=0.0, adjust_palm=False):
         """
         Moves the robot arm(s) to the specified target angles (degrees) based on the side.
         If side is 'both', calculates IK for left with negated y.
@@ -646,7 +668,9 @@ class Grasper:
             else:
                 # pos[2] = calculate_z(pos[0], pos[1]) + 0.04
                 # pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
-                pos[2] = self.rh_rbf.predict_z(pos[0], pos[1]) - 0.001
+                # pos[2] = self.rh_rbf.predict_z(pos[0], pos[1]) - 0.001
+
+                pos[2] += self.rh_rbf.predict_z(pos[0], pos[1]) - 0.001 - 0.05
         
         pos[2] += z_offset
 
@@ -690,9 +714,10 @@ class Grasper:
             print(f"No valid joints found for the {side} arm in the IK solution.")
             return
         
-        if raise_palm:
+        if adjust_palm:
             print(f'ik solution: {filtered_solution}')
-            filtered_solution['r_wrist_x'] = -180.0
+            filtered_solution = self.adjust_right_palm(filtered_solution)
+            print(f'adjusted ik solution: {filtered_solution}')
 
         print(f"Moving {side} arm to filtered IK solution angles...")
         success_count = 0
@@ -1104,43 +1129,52 @@ class Grasper:
                 x_pred, y_pred, z_pred = self.get_xy2xyz_prediction(x, y)
 
                 if 0.27 < x_pred < 0.48 and -0.23 < y_pred < 0.23:
-                    print('inside nn correction zone')
-                    z = z_pred + 0.04
+                    print('inside nn correction zone for model 3')
+                    # z = z_pred + 0.04             # for 2d
+
+                    z += z_pred + 0.04 - 0.05       # for 3d
                 else:
-                    print('otside nn correction zone')
+                    print('otside nn correction zone for model 3')
                     if side.lower() == 'left':
                         # pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
                         print("lefthand autozpos not implemented")
                     else:
                         # pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
-                        z = self.rh_rbf.predict_z(x, y) - 0.001
+                        # z = self.rh_rbf.predict_z(x, y) - 0.001             # for 2d
+
+                        z += self.rh_rbf.predict_z(x, y) - 0.001 - 0.05       # for 3d
             else:
                 x_pred, y_pred = self.get_xy2xy_prediction(x, y)
 
                 if 0.27 < x_pred < 0.48 and -0.23 < y_pred < 0.23:
-                    print('inside nn correction zone')
+                    print('inside nn correction zone for model 2')
                 else:
-                    print('otside nn correction zone')
+                    print('otside nn correction zone for model 3')
                     
                 if side.lower() == 'left':
                     # pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
                     print("lefthand autozpos not implemented")
                 else:
                     # pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
-                    z = self.rh_rbf.predict_z(x, y) - 0.001
+                    # z = self.rh_rbf.predict_z(x, y) - 0.001             # for 2d
+
+                    z += self.rh_rbf.predict_z(x, y) - 0.001 - 0.05       # for 3d
             
             print(f'predicted point: {x_pred}, {y_pred}')
             x, y = x_pred, y_pred
             shift_for_grasping = 3.0
 
         else:
+            # print('using baseline model')
             if autozpos:
                 if side.lower() == 'left':
                     # pos[2] = self.lefthand_rbf_z(pos[0], pos[1]) - 0.002
                     print("lefthand autozpos not implemented")
                 else:
                     # pos[2] = self.righthand_rbf_z(pos[0], pos[1]) - 0.001
-                    z = self.rh_rbf.predict_z(x, y) - 0.001
+                    # z = self.rh_rbf.predict_z(x, y) - 0.001             # for 2d
+
+                    z += self.rh_rbf.predict_z(x, y) - 0.001 - 0.05       # for 3d
 
         if not skip_first_step:
             self.move_arm([x,y,z+0.06], ori, side, autoori=autoori)
@@ -1262,8 +1296,10 @@ class Grasper:
         head_z = self.robot.getAngle("head_z")
         head_y = self.robot.getAngle("head_y")
 
-        target_z = min(max(target_z, -90), 90)
-        target_y = min(max(target_y, -50), 25)
+        # target_z = min(max(target_z, -90), 90)
+        # target_y = min(max(target_y, -50), 25)
+
+        target_z, target_y = self.clamp_head_angles(target_z, target_y)
 
         self.robot.setAngle("head_z", target_z, self.speed_control(head_z, target_z, 1))
         self.robot.setAngle("head_y", target_y, self.speed_control(head_y, target_y, 1))
@@ -1290,9 +1326,9 @@ class Grasper:
         x_tab, y_tab = sim2tab_old(x, y)
 
         target = array([[x_tab, y_tab]])
-        print(f"Input target: {target}")
+        # print(f"Input target: {target}")
         target_norm = (target - x_mean) / x_std
-        print(f"Normalized target: {target_norm}")
+        # print(f"Normalized target: {target_norm}")
 
         pred_norm = self.xy2xy_model.predict(target_norm, verbose=0)
         pred = pred_norm * y_std + y_mean
@@ -1308,9 +1344,9 @@ class Grasper:
         x_tab, y_tab = sim2tab_old(x, y)
 
         target = array([[x_tab, y_tab]])
-        print(f"Input target: {target}")
+        # print(f"Input target: {target}")
         target_norm = (target - x_mean) / x_std
-        print(f"Normalized target: {target_norm}")
+        # print(f"Normalized target: {target_norm}")
 
         pred_norm = self.xy2xyz_model.predict(target_norm, verbose=0)
         pred = pred_norm * y_std + y_mean
@@ -1348,6 +1384,20 @@ class Grasper:
         state = p.getLinkState(self.robot_id, self.end_effector_index_r)
         pos, ori = state[0], state[1]
         p.resetBasePositionAndOrientation(self.ee_box_id, pos, ori)
+
+    def clamp_head_angles(self, head_z, head_y):
+        z_low_limit, z_high_limit = head_z_limits(head_y)
+        # head_z = max(min(head_z, z_high_limit), z_low_limit)
+
+        if head_z > z_high_limit:
+            print('head_z too high, clamping down')
+            head_z = z_high_limit
+        
+        if head_z < z_low_limit:
+            print('head_z too low, clamping up')
+            head_z = z_low_limit
+
+        return head_z, head_y
 
     def disconnect(self):
         """Disconnects from PyBullet and potentially cleans up hardware resources."""

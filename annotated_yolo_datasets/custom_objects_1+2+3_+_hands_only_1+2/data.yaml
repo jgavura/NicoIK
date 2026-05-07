@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 8
+names: ['Banana', 'Duck', 'LeftHand', 'Mushroom', 'Onion', 'Orange', 'RightHand', 'Tomato']
+
+roboflow:
+  workspace: nico-t6uoh
+  project: nico-objects-1-2-3-hands-only-1-2
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/nico-t6uoh/nico-objects-1-2-3-hands-only-1-2/dataset/2

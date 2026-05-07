@@ -163,7 +163,7 @@ class StereoVision:
         
         return None, None
     
-    def get_object_3d_position(self, frame_l, frame_r, raw_u, raw_v, head_z, head_y, pivot_correction_mode="", object_name=""):
+    def get_object_3d_position(self, frame_l, frame_r, raw_u, raw_v, head_z, head_y, pivot_correction_mode="", adjust_z=False, object_name=""):
         """
         Calculates the 3D position of an object in sim space.
         
@@ -237,6 +237,9 @@ class StereoVision:
             # print(f"    Z (Up):      {torso_p[2]:.3f} m")
 
             # print(f"{torso_p[1]:.3f} {torso_p[0]:.3f} {torso_p[2]:.3f}")
+
+            if adjust_z:
+                torso_p[2] = 0.887 * torso_p[2] - 0.0151
             
             return torso_p
         else:
