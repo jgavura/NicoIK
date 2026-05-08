@@ -2,7 +2,7 @@ from ultralytics import YOLO
 import torch
 
 # --- CONFIGURATION ---
-MODEL_PATH = 'custom_dataset_models/yolov3_sppu_objects_1+2+3_hands_only_1+2.pt'
+MODEL_PATH = 'custom_dataset_models/yolo11s_objects_1+2+3_hands_only_1+2.pt'
 DATA_YAML = 'annotated_yolo_datasets/custom_objects_1+2+3_+_hands_only_1+2/data.yaml'
 IMG_SIZE = 640
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'

@@ -7,6 +7,7 @@ from ultralytics import YOLO
 from camera import Camera
 from stereo_vision import StereoVision
 from grasper import Grasper
+import random
 
 
 SCENE_PATH = "./urdf/nico_grasper.urdf"
@@ -16,8 +17,8 @@ X2Z_COEF, Y2Y_COEF = 0.37582421139136485, 0.3273428034924306
 BETA1 = [0.37536988, -0.00526618]
 BETA2 = [0.00983655, 0.33090327]
 
-FRAMES_SAVE_DIR = 'custom_dataset_4'
-FRAME_STARTING_INDEX = 0
+FRAMES_SAVE_DIR = 'experiment_vision/example_pictures'
+FRAME_STARTING_INDEX = 2
 
 # Function to save frame
 def save_frame(frame, side, timestamp):
@@ -265,20 +266,23 @@ while True:
 
         # print(f"head_z = {head_z}, head_y = {head_y}")
 
-        if align_counter > 0:
-            x_dif = (hidden_target_coord_difs_r[0] + hidden_target_coord_difs_l[0]) / 2
-            y_dif = ((hidden_target_coord_difs_r[1] + hidden_target_coord_difs_l[1]) / 2).item()
-        else:
-            x_dif = (target_coord_difs_r[0] + target_coord_difs_l[0]) / 2
-            y_dif = ((target_coord_difs_r[1] + target_coord_difs_l[1]) / 2).item()
-        # print(f"x_dif = {x_dif}, y_dif = {y_dif}")
+        # if align_counter > 0:
+        #     x_dif = (hidden_target_coord_difs_r[0] + hidden_target_coord_difs_l[0]) / 2
+        #     y_dif = ((hidden_target_coord_difs_r[1] + hidden_target_coord_difs_l[1]) / 2).item()
+        # else:
+        #     x_dif = (target_coord_difs_r[0] + target_coord_difs_l[0]) / 2
+        #     y_dif = ((target_coord_difs_r[1] + target_coord_difs_l[1]) / 2).item()
+        # # print(f"x_dif = {x_dif}, y_dif = {y_dif}")
 
-        if abs(x_dif) < 2 and abs(y_dif) < 2:
-            print(f"Target is close to center")
-            grasper.move_head(head_z, head_y)
-            break
-        else:
-            grasper.move_head(head_z + x_dif * 0.1, head_y + y_dif * 0.1)
+        # if abs(x_dif) < 2 and abs(y_dif) < 2:
+        #     print(f"Target is close to center")
+        #     grasper.move_head(head_z, head_y)
+        #     break
+        # else:
+        #     grasper.move_head(head_z + x_dif * 0.1, head_y + y_dif * 0.1)
+
+        grasper.robot.setAngle("head_z", head_z + random.uniform(-3, 3), 0.03)
+        grasper.robot.setAngle("head_y", head_y + random.uniform(-3, 3), 0.03)
     
     if key == ord('d'):             # print coordinates of an object found with yolo
         if not target_coord_difs_l:
@@ -358,6 +362,14 @@ while True:
     if key == ord('r'):             # print coordinates of right arm
         cx_l, cy_l = get_centroid(model, result_l, 'RightHand', lower=False)
 
+        if cx_l == None:
+            print('RightHand not found, trying left')
+            cx_l, cy_l = get_centroid(model, result_l, 'LeftHand', lower=False)
+        
+        if cx_l == None:
+            print('LeftHand not found, continue')
+            continue
+
         print(f'target_coord_diffs_l: {target_coord_difs_l}')
         print(f'cx_l: {cx_l}')
         print(f'cy_l: {cy_l}')
@@ -377,6 +389,7 @@ while True:
             continue
 
         if align_counter > 0:
+
             print(f'target_pos_last[:2]: {target_pos_last[:2]}')
             print(f'[target_pos[2]]: {[target_pos[2]]}')
 
@@ -385,6 +398,7 @@ while True:
             print(f'target_pos: {target_pos}')
 
             print('Grasping with aligned hand')
+            # grasper.streth_out_thumb('right')
             grasper.pick_object(
                 target_pos,
                 [0, 0, 0],
@@ -393,7 +407,8 @@ while True:
                 autozpos=True,
                 autoori=True,
                 shift_for_grasping=3.0,
-                skip_first_step=True
+                skip_first_step=False,
+                hand_aligned=True
             )
 
             align_counter = 0
@@ -433,7 +448,9 @@ while True:
 
             target_torso_point[2] = max(target_torso_point[2], 0.03)
 
-            grasper.move_arm(target_torso_point, [0, 0, 0], 'right', autozpos=True, z_offset=0.05, autoori=True, adjust_palm=True)
+            grasper.hide_thumb('right')
+
+            grasper.move_arm(target_torso_point, [0, 0, 0], 'right', autozpos=True, z_offset=0.03, autoori=True, adjust_palm=True)
 
             target_pos = target_torso_point
             target_pos_last = target_torso_point
@@ -464,15 +481,17 @@ while True:
                 print('Hand close to target')
                 continue
 
+            adjustment_factor = 1.0 / (2**(align_counter - 1))
+
             error_xy = target_pos[:2] - target_torso_point[:2]
             new_target = target_pos_last.copy()
-            new_target[:2] += error_xy
+            new_target[:2] += error_xy * adjustment_factor
 
             new_target[2] = max(new_target[2], 0.03)
 
             print(f'new target: {new_target}')
 
-            grasper.move_arm(new_target, [0, 0, 0], 'right', autozpos=True, z_offset=0.05, autoori=True, adjust_palm=True)
+            grasper.move_arm(new_target, [0, 0, 0], 'right', autozpos=True, z_offset=0.03, autoori=True, adjust_palm=True)
 
             target_pos_last = new_target
             align_counter += 1

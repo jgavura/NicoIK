@@ -1,0 +1,3 @@
+palm - wrist_x: 0 ... -180 ; vystreta ... zdvihnuta
+rotation added - wrist_z: 120 ... 0 ; rotovana ku robotovi ... normalne
+elbow - elbow_y:  60 ... 160 ; skrceny ... vystrety

@@ -2,7 +2,7 @@ from concurrent.futures import thread
 from tensorflow import keras
 import pybullet as p
 import time
-from numpy import random, rad2deg, deg2rad, set_printoptions, array, linalg, round, any, mean, arctan2, sqrt, pi, sin, cos, tan
+from numpy import random, rad2deg, deg2rad, set_printoptions, array, linalg, round, any, mean, arctan2, sqrt, pi, sin, cos, tan, clip
 import sys  # Add this import at the top of the file
 from sim_height_calculation import calculate_z
 from tablet_coords_conversion import sim2tab, sim2tab_old
@@ -162,6 +162,12 @@ class Grasper:
             self.xy2xyz_mean_std['y_mean'] = float(data[2])
             self.xy2xyz_mean_std['y_std'] = float(data[3])
         self.ee_box_visible = False
+
+        self.last_align_params = {
+            'yaw': None,
+            'wrist_x': None,
+            'wrist_z': None
+        }
 
         try:
             # Connect to PyBullet (GUI or DIRECT)
@@ -637,6 +643,8 @@ class Grasper:
         actual_corr_x = ratio * corr_x_at_160
         actual_corr_z = (1 - ratio) * corr_z_at_60
 
+        self.last_align_params['wrist_z'] = (1 - ratio) * corr_z_at_60
+
         ik_solution['r_wrist_x'] += actual_corr_x
         ik_solution['r_wrist_z'] += actual_corr_z
 
@@ -682,6 +690,8 @@ class Grasper:
                 # ori[2] = self.compute_ori_from_pos(pos)
                 # ori[2] = self.righthand_rbf_yaw(pos[0], pos[1])
                 ori[2] = self.rh_rbf.predict_yaw(pos[0], pos[1], pos[2])
+        
+        self.last_align_params['yaw'] = ori[2]
 
         ik_solution_nico_deg = self.rad2nicodeg(self.joint_names, self.calculate_ik(side, pos, ori))
 
@@ -718,6 +728,8 @@ class Grasper:
             print(f'ik solution: {filtered_solution}')
             filtered_solution = self.adjust_right_palm(filtered_solution)
             print(f'adjusted ik solution: {filtered_solution}')
+        
+        self.last_align_params['wrist_x'] = filtered_solution['r_wrist_x']
 
         print(f"Moving {side} arm to filtered IK solution angles...")
         success_count = 0
@@ -1033,6 +1045,22 @@ class Grasper:
         except Exception as e:
             print(f"Error opening {name} finger: {e}")
     
+    def hide_thumb(self, side):
+        if side == 'right':
+            # self.robot.setAngle('r_thumb_z', 175, self.speed)
+            self.robot.setAngle('r_thumb_x', 90, self.speed)
+        else:
+            # self.robot.setAngle('l_thumb_z', 175, self.speed)
+            self.robot.setAngle('l_thumb_x', 90, self.speed)
+    
+    def streth_out_thumb(self, side):
+        if side == 'right':
+            # self.robot.setAngle('r_thumb_z', -62, self.speed)
+            self.robot.setAngle('r_thumb_x', -180, self.speed)
+        else:
+            # self.robot.setAngle('l_thumb_z', -62, self.speed)
+            self.robot.setAngle('l_thumb_x', -180, self.speed)
+    
     def get_look_at_quaternion(self, eye_pos, target_pos):
         """
         Calculates a quaternion to orient an object at eye_pos to look at target_pos.
@@ -1114,8 +1142,44 @@ class Grasper:
             else:
                 print(f"  Skipping {joint_name} due to invalid angle.")
         time.sleep(self.delay/2)  # Delay after the move completes
+    
+    def adjust_target_based_on_yaw(self, x, y):
+        yaw = self.last_align_params['yaw']
 
-    def pick_object(self, pos, ori, side, nn_model=1, autozpos=False, autoori=False, shift_for_grasping=0.0, skip_first_step=False):
+        if yaw == None:
+            print('No yaw saved, adjustment cannot be performed')
+            return x, y
+        
+        wrist_x = self.last_align_params['wrist_x']
+        wrist_z = self.last_align_params['wrist_z']
+
+        ratio_back = clip(wrist_x / -180.0, 0.0, 1.0)
+        # ratio_back = 1.0
+        ratio_right = clip(wrist_z / 120.0, 0.0, 1.0)
+        max_dist_back = 0.02
+        max_dist_right = 0.01
+
+        print(f'ratio_back: {ratio_back}')
+        print(f'ratio_right: {ratio_right}')
+        
+        # Forward vector (where the hand is pointing)
+        forward_dir = array([cos(yaw), sin(yaw)])
+    
+        # Right vector (perpendicular to forward, 90 degrees clockwise)
+        right_dir = array([sin(yaw), -cos(yaw)])
+        
+        # We move "back" (negative forward) and "right"
+        displacement = (-0.01 + -ratio_back * max_dist_back * forward_dir) + (ratio_right * max_dist_right * right_dir)
+        
+        print(f'displacement: {displacement}')
+        
+        x += displacement[0]
+        y += displacement[1]
+
+        return x, y
+
+
+    def pick_object(self, pos, ori, side, nn_model=1, autozpos=False, autoori=False, shift_for_grasping=0.0, skip_first_step=False, hand_aligned=False):
         x, y, z = pos
 
         if nn_model != 1:
@@ -1175,9 +1239,13 @@ class Grasper:
                     # z = self.rh_rbf.predict_z(x, y) - 0.001             # for 2d
 
                     z += self.rh_rbf.predict_z(x, y) - 0.001 - 0.05       # for 3d
+        
+        if hand_aligned:
+            x, y = self.adjust_target_based_on_yaw(x, y)
 
         if not skip_first_step:
             self.move_arm([x,y,z+0.06], ori, side, autoori=autoori)
+            self.streth_out_thumb(side)
             time.sleep(1)
         self.move_arm([x,y,z], ori, side, autoori=autoori, shift_for_grasping=shift_for_grasping)
         # time.sleep(1)
